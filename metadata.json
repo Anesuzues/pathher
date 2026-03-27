@@ -1,0 +1,7 @@
+{
+  "name": "PathHer AI",
+  "description": "Empowering young South African women to discover their ideal career and study paths through AI-driven insights and local opportunities.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

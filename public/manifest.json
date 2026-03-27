@@ -1,0 +1,21 @@
+{
+  "name": "PathHer AI",
+  "short_name": "PathHer",
+  "description": "Empowering young South African women to discover their ideal career and study paths.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FDF8FF",
+  "theme_color": "#9333ea",
+  "icons": [
+    {
+      "src": "https://picsum.photos/seed/pathher-icon/192/192",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://picsum.photos/seed/pathher-icon/512/512",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
