@@ -1,20 +1,22 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  ChevronRight, 
-  ChevronLeft, 
-  Check, 
-  Brain, 
-  Heart, 
-  Target, 
+import {
+  ChevronRight,
+  ChevronLeft,
+  Check,
+  Brain,
+  Heart,
+  Target,
   Briefcase,
   Sparkles,
   User,
   Mail,
   GraduationCap,
-  Star
 } from 'lucide-react';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 
 type StepId = 'personal' | 'education' | 'interests' | 'strengths' | 'goals' | 'workStyle';
@@ -87,6 +89,8 @@ const OPTIONS = {
 
 export default function OnboardingPage() {
   const [currentStep, setCurrentStep] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
+  const { user, setHasProfile } = useAuth();
   const [data, setData] = useState<OnboardingData>({
     fullName: '',
     email: '',
@@ -94,9 +98,20 @@ export default function OnboardingPage() {
     interests: [],
     strengths: [],
     goals: [],
-    workStyle: []
+    workStyle: [],
   });
   const navigate = useNavigate();
+
+  // Pre-fill from Google auth if available
+  useEffect(() => {
+    if (user) {
+      setData(d => ({
+        ...d,
+        fullName: d.fullName || user.displayName || '',
+        email: d.email || user.email || '',
+      }));
+    }
+  }, [user]);
 
   const step = STEPS[currentStep];
 
@@ -111,11 +126,23 @@ export default function OnboardingPage() {
     }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep < STEPS.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
+      setIsSaving(true);
+      // Always save to localStorage
       localStorage.setItem('pathher_profile', JSON.stringify(data));
+      // Save to Firestore if logged in
+      if (user) {
+        try {
+          await setDoc(doc(db, 'users', user.uid), { profile: data }, { merge: true });
+          setHasProfile(true);
+        } catch (e) {
+          console.error('Failed to save profile to Firestore:', e);
+        }
+      }
+      setIsSaving(false);
       navigate('/recommendations');
     }
   };
@@ -168,7 +195,7 @@ export default function OnboardingPage() {
       </div>
 
       {/* Form Content */}
-      <div className="bg-white rounded-[2.5rem] p-8 md:p-12 shadow-sm border border-purple-50 min-h-[500px] flex flex-col">
+      <div className="bg-white rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-10 lg:p-12 shadow-sm border border-purple-50 min-h-[480px] flex flex-col">
         <div className="flex-1 space-y-8">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center">
@@ -264,7 +291,7 @@ export default function OnboardingPage() {
               )}
 
               {(step.id === 'interests' || step.id === 'strengths' || step.id === 'goals' || step.id === 'workStyle') && (
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-wrap gap-2 md:gap-3">
                   {OPTIONS[step.id].map((option) => {
                     const isSelected = (data[step.id] as string[]).includes(option);
                     return (
@@ -272,14 +299,14 @@ export default function OnboardingPage() {
                         key={option}
                         onClick={() => toggleSelection(step.id as any, option)}
                         className={cn(
-                          "px-6 py-3 rounded-full border-2 font-bold transition-all flex items-center gap-2",
-                          isSelected 
-                            ? "border-purple-600 bg-purple-600 text-white shadow-lg shadow-purple-200" 
+                          "px-4 md:px-6 py-2 md:py-3 rounded-full border-2 font-bold transition-all flex items-center gap-2 text-sm md:text-base",
+                          isSelected
+                            ? "border-purple-600 bg-purple-600 text-white shadow-lg shadow-purple-200"
                             : "border-gray-100 bg-gray-50 text-gray-600 hover:border-purple-200"
                         )}
                       >
                         {option}
-                        {isSelected && <Check size={16} />}
+                        {isSelected && <Check size={14} />}
                       </button>
                     );
                   })}
@@ -290,7 +317,7 @@ export default function OnboardingPage() {
         </div>
 
         {/* Navigation Buttons */}
-        <div className="pt-12 flex justify-between items-center">
+        <div className="pt-8 md:pt-12 flex justify-between items-center">
           <button
             onClick={handleBack}
             disabled={currentStep === 0}
@@ -306,16 +333,22 @@ export default function OnboardingPage() {
           </button>
           <button
             onClick={handleNext}
-            disabled={!isStepValid()}
+            disabled={!isStepValid() || isSaving}
             className={cn(
               "flex items-center gap-2 font-bold px-8 py-4 rounded-2xl transition-all shadow-lg",
-              !isStepValid()
+              !isStepValid() || isSaving
                 ? "bg-gray-100 text-gray-400 cursor-not-allowed shadow-none"
                 : "bg-gradient-to-r from-purple-600 to-pink-500 text-white shadow-purple-200 hover:shadow-purple-300"
             )}
           >
-            {currentStep === STEPS.length - 1 ? 'See Results' : 'Next'}
-            <ChevronRight size={20} />
+            {isSaving ? (
+              <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+            ) : (
+              <>
+                {currentStep === STEPS.length - 1 ? 'See Results' : 'Next'}
+                <ChevronRight size={20} />
+              </>
+            )}
           </button>
         </div>
       </div>

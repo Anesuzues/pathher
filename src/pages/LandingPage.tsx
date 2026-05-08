@@ -56,9 +56,9 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="space-y-24 pb-20">
+    <div className="space-y-16 md:space-y-24 pb-12 md:pb-20">
       {/* Hero Section */}
-      <section className="relative text-center space-y-8 pt-12 md:pt-20 overflow-hidden">
+      <section className="relative text-center space-y-6 md:space-y-8 pt-8 md:pt-20 overflow-hidden">
         {/* Background Decorative Elements */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full -z-10 pointer-events-none">
           <motion.div 
@@ -106,31 +106,31 @@ export default function LandingPage() {
             </span>
           </motion.div>
 
-          <h1 className="text-6xl md:text-8xl font-black leading-[0.9] tracking-tight text-gray-900">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-8xl font-black leading-[0.9] tracking-tight text-gray-900">
             Your Future, <br />
             <span className="bg-gradient-to-r from-purple-600 via-pink-500 to-orange-400 bg-clip-text text-transparent">Defined by You.</span>
           </h1>
-          <p className="text-xl md:text-2xl text-gray-600 max-w-2xl mx-auto leading-relaxed font-medium">
-            PathHer AI is your companion in navigating the South African career landscape. 
-            Discover your strengths, build your brand, and unlock opportunities specifically 
+          <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-gray-600 max-w-2xl mx-auto leading-relaxed font-medium">
+            PathHer AI is your companion in navigating the South African career landscape.
+            Discover your strengths, build your brand, and unlock opportunities specifically
             designed for young women like you.
           </p>
-          <div className="flex flex-col sm:flex-row gap-6 justify-center pt-8">
-            <Link 
-              to="/onboarding" 
-              className="group relative px-10 py-5 bg-purple-600 text-white rounded-2xl font-bold text-xl shadow-xl shadow-purple-200 hover:shadow-purple-400 hover:scale-[1.02] transition-all flex items-center justify-center gap-3 overflow-hidden"
+          <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center pt-4 sm:pt-8">
+            <Link
+              to="/onboarding"
+              className="group relative px-7 sm:px-10 py-4 sm:py-5 bg-purple-600 text-white rounded-2xl font-bold text-base sm:text-xl shadow-xl shadow-purple-200 hover:shadow-purple-400 hover:scale-[1.02] transition-all flex items-center justify-center gap-3 overflow-hidden"
             >
               <span className="relative z-10">Start My Journey</span>
-              <ArrowRight size={24} className="relative z-10 group-hover:translate-x-1 transition-transform" />
-              <motion.div 
+              <ArrowRight size={20} className="relative z-10 group-hover:translate-x-1 transition-transform" />
+              <motion.div
                 className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 opacity-0 group-hover:opacity-100 transition-opacity"
               />
             </Link>
-            <button 
+            <button
               onClick={() => setShowReset(true)}
-              className="group px-10 py-5 bg-white text-purple-700 border-2 border-purple-100 rounded-2xl font-bold text-xl hover:bg-purple-50 hover:border-purple-600 transition-all flex items-center justify-center gap-3"
+              className="group px-7 sm:px-10 py-4 sm:py-5 bg-white text-purple-700 border-2 border-purple-100 rounded-2xl font-bold text-base sm:text-xl hover:bg-purple-50 hover:border-purple-600 transition-all flex items-center justify-center gap-3"
             >
-              <Wind size={24} className="group-hover:rotate-180 transition-transform duration-1000" />
+              <Wind size={20} className="group-hover:rotate-180 transition-transform duration-1000" />
               Take a 30-second reset
             </button>
           </div>
@@ -138,13 +138,13 @@ export default function LandingPage() {
       </section>
 
       {/* Partners Section */}
-      <section className="py-12 border-y border-purple-50">
-        <p className="text-center text-xs font-bold text-gray-400 uppercase tracking-[0.2em] mb-8">
+      <section className="py-10 md:py-12 border-y border-purple-50">
+        <p className="text-center text-xs font-bold text-gray-400 uppercase tracking-[0.2em] mb-6 md:mb-8">
           Empowering women with partners across SA
         </p>
-        <div className="flex flex-wrap justify-center items-center gap-12 md:gap-24 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
+        <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16 lg:gap-24 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
           {['TechSA', 'FutureLeaders', 'EmpowerHer', 'SAInnovate', 'WomenInTech'].map((name) => (
-            <div key={name} className="font-black text-2xl text-gray-400 tracking-tighter">
+            <div key={name} className="font-black text-lg sm:text-xl md:text-2xl text-gray-400 tracking-tighter">
               {name}
             </div>
           ))}
@@ -152,13 +152,13 @@ export default function LandingPage() {
       </section>
 
       {/* Benefits Section */}
-      <section className="space-y-16">
-        <div className="text-center space-y-4">
-          <h2 className="text-4xl font-black tracking-tight">How We Empower You</h2>
+      <section className="space-y-10 md:space-y-16">
+        <div className="text-center space-y-3">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight">How We Empower You</h2>
           <p className="text-gray-500 font-medium">Three pillars to build your successful career.</p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6 md:gap-8">
           {[
             {
               icon: Target,
@@ -182,38 +182,39 @@ export default function LandingPage() {
               accent: "border-orange-100"
             }
           ].map((benefit, i) => (
-            <motion.div 
+            <motion.div
               key={i}
-              whileHover={{ y: -10 }}
-              className={cn("p-10 bg-white rounded-[2.5rem] border shadow-sm transition-all space-y-6", benefit.accent)}
+              whileHover={{ y: -6 }}
+              className={cn("p-6 md:p-8 lg:p-10 bg-white rounded-[2rem] md:rounded-[2.5rem] border shadow-sm transition-all space-y-4 md:space-y-6", benefit.accent)}
             >
-              <div className={cn("w-16 h-16 rounded-2xl flex items-center justify-center", benefit.color)}>
-                <benefit.icon size={32} />
+              <div className={cn("w-12 h-12 md:w-16 md:h-16 rounded-xl md:rounded-2xl flex items-center justify-center", benefit.color)}>
+                <benefit.icon size={28} className="md:hidden" />
+                <benefit.icon size={32} className="hidden md:block" />
               </div>
-              <h3 className="text-2xl font-bold leading-tight">{benefit.title}</h3>
-              <p className="text-gray-600 leading-relaxed font-medium">{benefit.desc}</p>
+              <h3 className="text-lg md:text-xl lg:text-2xl font-bold leading-tight">{benefit.title}</h3>
+              <p className="text-gray-600 leading-relaxed font-medium text-sm md:text-base">{benefit.desc}</p>
             </motion.div>
           ))}
         </div>
       </section>
 
       {/* SA Context & Empowerment Section */}
-      <section className="bg-white rounded-[4rem] p-12 md:p-20 border border-purple-50 shadow-sm overflow-hidden relative">
-        <div className="grid md:grid-cols-2 gap-16 items-center relative z-10">
-          <div className="space-y-8">
+      <section className="bg-white rounded-[2rem] sm:rounded-[3rem] md:rounded-[4rem] p-8 sm:p-12 md:p-16 lg:p-20 border border-purple-50 shadow-sm overflow-hidden relative">
+        <div className="grid md:grid-cols-2 gap-10 md:gap-16 items-center relative z-10">
+          <div className="space-y-6 md:space-y-8">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-orange-100 text-orange-700 text-xs font-bold uppercase tracking-wider">
               <Heart size={14} />
               <span>South African Context</span>
             </div>
-            <h2 className="text-4xl md:text-5xl font-black leading-tight tracking-tight">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black leading-tight tracking-tight">
               Empowering the Next Generation of <span className="text-purple-600">SA Leaders.</span>
             </h2>
-            <p className="text-lg text-gray-600 leading-relaxed font-medium">
-              We understand the unique challenges and vibrant opportunities in South Africa. 
-              Our mission is to bridge the gap for young women, providing them with the tools 
+            <p className="text-base md:text-lg text-gray-600 leading-relaxed font-medium">
+              We understand the unique challenges and vibrant opportunities in South Africa.
+              Our mission is to bridge the gap for young women, providing them with the tools
               and network to lead in tech, business, and beyond.
             </p>
-            <div className="space-y-4">
+            <div className="space-y-3 md:space-y-4">
               {[
                 "Localized funding & bursary matching",
                 "Partnerships with SA's top tech employers",
@@ -223,22 +224,23 @@ export default function LandingPage() {
                   <div className="w-6 h-6 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center shrink-0">
                     <Check size={14} />
                   </div>
-                  <span className="font-bold text-gray-700">{item}</span>
+                  <span className="font-bold text-gray-700 text-sm md:text-base">{item}</span>
                 </div>
               ))}
             </div>
           </div>
           <div className="relative">
-            <div className="rounded-[3rem] overflow-hidden shadow-2xl">
-              <img 
-                src="https://picsum.photos/seed/sa-empower/800/800" 
-                alt="South African Women Empowerment" 
+            <div className="rounded-2xl sm:rounded-[2.5rem] md:rounded-[3rem] overflow-hidden shadow-2xl">
+              <img
+                src="https://picsum.photos/seed/sa-empower/800/800"
+                alt="South African Women Empowerment"
                 className="w-full h-auto object-cover"
                 referrerPolicy="no-referrer"
               />
             </div>
-            <div className="absolute -bottom-6 -right-6 bg-white p-6 rounded-3xl shadow-xl border border-purple-50 max-w-[200px]">
-              <p className="text-sm font-bold text-gray-900 leading-tight">
+            {/* Quote card — hidden on small screens to prevent overflow */}
+            <div className="hidden sm:block absolute -bottom-6 -right-6 bg-white p-5 md:p-6 rounded-2xl md:rounded-3xl shadow-xl border border-purple-50 max-w-[180px] md:max-w-[200px]">
+              <p className="text-xs md:text-sm font-bold text-gray-900 leading-tight">
                 "Investing in women is the most effective way to change the world."
               </p>
             </div>
@@ -256,11 +258,11 @@ export default function LandingPage() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-purple-900/90 backdrop-blur-xl z-[100] flex items-center justify-center p-6"
           >
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-[3rem] p-12 md:p-16 max-w-2xl w-full text-center space-y-10 relative overflow-hidden"
+              className="bg-white rounded-[2rem] sm:rounded-[3rem] p-8 sm:p-12 md:p-16 max-w-2xl w-full text-center space-y-8 relative overflow-hidden"
             >
               <button 
                 onClick={closeReset}
@@ -285,9 +287,9 @@ export default function LandingPage() {
                     </p>
                   </div>
                   <div className="flex flex-col gap-4">
-                    <button 
+                    <button
                       onClick={() => setResetStep('breathing')}
-                      className="px-10 py-5 bg-purple-600 text-white rounded-2xl font-bold text-xl hover:bg-purple-700 transition-all shadow-xl shadow-purple-100"
+                      className="px-8 py-4 bg-purple-600 text-white rounded-2xl font-bold text-base sm:text-xl hover:bg-purple-700 transition-all shadow-xl shadow-purple-100"
                     >
                       Start Breathing
                     </button>
@@ -302,12 +304,12 @@ export default function LandingPage() {
               )}
 
               {resetStep === 'breathing' && (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="space-y-12"
+                  className="space-y-8 sm:space-y-12"
                 >
-                  <div className="relative flex items-center justify-center h-64">
+                  <div className="relative flex items-center justify-center h-48 sm:h-64">
                     <motion.div 
                       animate={{ 
                         scale: breathPhase === 'Inhale' ? 1.8 : breathPhase === 'Hold' ? 1.8 : 1,
@@ -370,16 +372,16 @@ export default function LandingPage() {
                     </p>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                    <Link 
+                    <Link
                       to="/onboarding"
                       onClick={closeReset}
-                      className="px-10 py-5 bg-purple-600 text-white rounded-2xl font-bold text-xl hover:bg-purple-700 transition-all shadow-xl shadow-purple-100"
+                      className="px-8 py-4 bg-purple-600 text-white rounded-2xl font-bold text-base sm:text-xl hover:bg-purple-700 transition-all shadow-xl shadow-purple-100"
                     >
                       Continue My Journey
                     </Link>
-                    <button 
+                    <button
                       onClick={closeReset}
-                      className="px-10 py-5 bg-gray-100 text-gray-600 rounded-2xl font-bold text-xl hover:bg-gray-200 transition-all"
+                      className="px-8 py-4 bg-gray-100 text-gray-600 rounded-2xl font-bold text-base sm:text-xl hover:bg-gray-200 transition-all"
                     >
                       Skip
                     </button>
@@ -392,13 +394,13 @@ export default function LandingPage() {
       </AnimatePresence>
 
       {/* Footer */}
-      <footer className="pt-12 border-t border-purple-100 flex flex-col md:flex-row justify-between items-center gap-6 text-gray-500 text-sm">
+      <footer className="pt-10 md:pt-12 border-t border-purple-100 flex flex-col md:flex-row justify-between items-center gap-4 md:gap-6 text-gray-500 text-xs sm:text-sm">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold text-[10px]">P</div>
           <span className="font-bold text-gray-900">PathHer AI</span>
           <span>&copy; 2026 Nobztech. All rights reserved.</span>
         </div>
-        <div className="flex gap-8 font-medium">
+        <div className="flex gap-5 sm:gap-8 font-medium">
           <a href="#" className="hover:text-purple-600 transition-colors">Privacy Policy</a>
           <a href="#" className="hover:text-purple-600 transition-colors">Terms of Service</a>
           <a href="#" className="hover:text-purple-600 transition-colors">Contact Us</a>
