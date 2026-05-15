@@ -77,6 +77,12 @@ export default function BrandingPage() {
   const [cvContent, setCvContent] = useState('');
   const [linkedinBio, setLinkedinBio] = useState('');
   const [completion, setCompletion] = useState(0);
+  const [linkedInConnected, setLinkedInConnected] = useState(
+    () => localStorage.getItem('connected_linkedin') === 'true'
+  );
+  const [profileVisible, setProfileVisible] = useState(
+    () => localStorage.getItem('profile_visible') !== 'false'
+  );
 
   useEffect(() => {
     const raw = localStorage.getItem('pathher_profile');
@@ -134,10 +140,23 @@ export default function BrandingPage() {
 
   const hasProfile = profile && profile.fullName;
   const displayName = profile?.fullName || 'Your Profile';
+
+  const handleConnectLinkedIn = () => {
+    window.open('https://www.linkedin.com/profile/edit', '_blank', 'noopener,noreferrer');
+    localStorage.setItem('connected_linkedin', 'true');
+    setLinkedInConnected(true);
+  };
+
+  const handleToggleVisibility = () => {
+    const next = !profileVisible;
+    setProfileVisible(next);
+    localStorage.setItem('profile_visible', String(next));
+  };
+
   const nextSteps = [
     { label: 'Complete onboarding', done: hasProfile },
     { label: 'Generate CV summary', done: cvContent.length > 0 },
-    { label: 'Connect LinkedIn', done: false },
+    { label: 'Connect LinkedIn', done: linkedInConnected },
     { label: 'Join Talent Network', done: !!localStorage.getItem('joined_network') },
   ];
 
@@ -203,13 +222,36 @@ export default function BrandingPage() {
           <div className="bg-indigo-900 rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 text-white space-y-4 relative overflow-hidden">
             <h3 className="text-xl font-bold relative z-10">Recruiter Visibility</h3>
             <p className="text-indigo-200 text-sm relative z-10">
-              Your profile is currently visible to 12 top tech companies in South Africa.
+              {profileVisible
+                ? 'Your profile is visible to top tech companies in South Africa.'
+                : 'Your profile is currently hidden from recruiters.'}
             </p>
-            <button className="w-full py-3 bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-xl font-bold text-sm hover:bg-white/20 transition-all relative z-10">
-              Manage Visibility
+            <button
+              onClick={handleToggleVisibility}
+              className={cn(
+                'w-full py-3 backdrop-blur-md border border-white/20 rounded-xl font-bold text-sm transition-all relative z-10',
+                profileVisible
+                  ? 'bg-white/10 text-white hover:bg-white/20'
+                  : 'bg-white text-indigo-900 hover:bg-indigo-50'
+              )}
+            >
+              {profileVisible ? 'Hide from Recruiters' : 'Make Visible'}
             </button>
             <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-pink-500/20 rounded-full blur-3xl"></div>
           </div>
+
+          <button
+            onClick={handleConnectLinkedIn}
+            className={cn(
+              'w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all border-2',
+              linkedInConnected
+                ? 'border-blue-200 bg-blue-50 text-blue-700'
+                : 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-100'
+            )}
+          >
+            <Linkedin size={20} />
+            {linkedInConnected ? 'LinkedIn Connected ✓' : 'Connect LinkedIn'}
+          </button>
         </div>
 
         {/* Content Area */}

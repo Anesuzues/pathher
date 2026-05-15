@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Home, User, Briefcase, GraduationCap, LayoutDashboard,
@@ -17,8 +17,10 @@ import OpportunitiesPage from './pages/OpportunitiesPage';
 import BrandingPage from './pages/BrandingPage';
 import EcosystemPage from './pages/EcosystemPage';
 import DashboardPage from './pages/DashboardPage';
+import ProfilePage from './pages/ProfilePage';
+import NotFoundPage from './pages/NotFoundPage';
 
-function PrivateRoute({ children }: { children: React.ReactNode }) {
+function PrivateRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   const location = useLocation();
 
@@ -37,6 +39,13 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+const NOTIFICATIONS = [
+  { id: 1, title: 'Career match ready!', body: 'Your PathHer AI career recommendations are live.', time: '2 min ago', unread: true },
+  { id: 2, title: 'New opportunity added', body: 'Entelect Graduate Programme 2026 applications are now open.', time: '1 hr ago', unread: true },
+  { id: 3, title: 'Profile incomplete', body: 'Complete your work style preferences to improve your match score.', time: '2 hrs ago', unread: false },
+  { id: 4, title: 'Application deadline', body: "WeThinkCode_ applications close in 7 days. Don't miss out!", time: '1 day ago', unread: false },
+];
+
 function Navigation({
   isCollapsed, setIsCollapsed, isHovered, setIsHovered,
 }: {
@@ -47,7 +56,9 @@ function Navigation({
 }) {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const { user, signOut } = useAuth();
+  const unreadCount = NOTIFICATIONS.filter(n => n.unread).length;
 
   const navItems = [
     { path: '/', label: 'Home', icon: Home },
@@ -121,21 +132,32 @@ function Navigation({
 
         {/* User section */}
         <div className="px-4 mt-auto space-y-2">
-          <button className={cn('flex items-center gap-4 p-3 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-2xl transition-all w-full', !sidebarExpanded && 'justify-center')}>
+          <button
+            onClick={() => setIsNotificationsOpen(true)}
+            className={cn('relative flex items-center gap-4 p-3 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-2xl transition-all w-full', !sidebarExpanded && 'justify-center')}
+          >
             <Bell size={24} className="shrink-0" />
             {sidebarExpanded && <span className="font-bold">Notifications</span>}
+            {unreadCount > 0 && (
+              <span className={cn('w-5 h-5 bg-pink-500 text-white text-[10px] font-black rounded-full flex items-center justify-center shrink-0', sidebarExpanded ? 'ml-auto' : 'absolute top-1.5 right-1.5')}>
+                {unreadCount}
+              </span>
+            )}
           </button>
 
           {user && (
-            <div className={cn('flex items-center gap-3 p-3 rounded-2xl bg-purple-50', !sidebarExpanded && 'justify-center')}>
+            <Link
+              to="/profile"
+              className={cn('flex items-center gap-3 p-3 rounded-2xl bg-purple-50 hover:bg-purple-100 transition-colors group', !sidebarExpanded && 'justify-center')}
+            >
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-400 flex items-center justify-center text-white text-xs font-black shrink-0">
                 {initials}
               </div>
               {sidebarExpanded && (
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-gray-900 truncate">{displayName}</p>
+                  <p className="text-xs font-bold text-gray-900 truncate group-hover:text-purple-700 transition-colors">{displayName}</p>
                   <button
-                    onClick={signOut}
+                    onClick={e => { e.preventDefault(); signOut(); }}
                     className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-red-500 transition-colors font-bold uppercase tracking-wider mt-0.5"
                   >
                     <LogOut size={10} />
@@ -143,7 +165,7 @@ function Navigation({
                   </button>
                 </div>
               )}
-            </div>
+            </Link>
           )}
 
           {!user && sidebarExpanded && (
@@ -165,11 +187,59 @@ function Navigation({
             <span className="text-xl font-black bg-gradient-to-r from-purple-700 to-pink-600 bg-clip-text text-transparent">PathHer</span>
           </Link>
         </div>
-        <button className="relative p-2 text-gray-500">
+        <button onClick={() => setIsNotificationsOpen(true)} className="relative p-2 text-gray-500 hover:text-purple-600 transition-colors">
           <Bell size={20} />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-pink-500 rounded-full border-2 border-white"></span>
+          {unreadCount > 0 && <span className="absolute top-1 right-1 w-2 h-2 bg-pink-500 rounded-full border-2 border-white" />}
         </button>
       </header>
+
+      {/* Notifications Drawer */}
+      <AnimatePresence>
+        {isNotificationsOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setIsNotificationsOpen(false)}
+              className="fixed inset-0 bg-purple-900/20 backdrop-blur-sm z-[60]"
+            />
+            <motion.div
+              initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed top-0 right-0 bottom-0 w-[320px] sm:w-[380px] bg-white z-[70] flex flex-col shadow-2xl"
+            >
+              <div className="flex items-center justify-between p-6 border-b border-purple-100">
+                <div>
+                  <h2 className="font-bold text-lg">Notifications</h2>
+                  <p className="text-xs text-gray-400">{unreadCount} unread</p>
+                </div>
+                <button onClick={() => setIsNotificationsOpen(false)} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto divide-y divide-purple-50">
+                {NOTIFICATIONS.map(n => (
+                  <div key={n.id} className={cn('p-5 flex gap-3', n.unread && 'bg-purple-50/50')}>
+                    <div className={cn('w-2 h-2 rounded-full mt-1.5 shrink-0', n.unread ? 'bg-purple-600' : 'bg-gray-200')} />
+                    <div className="space-y-1 flex-1">
+                      <p className="font-bold text-sm text-gray-900">{n.title}</p>
+                      <p className="text-xs text-gray-500 leading-relaxed">{n.body}</p>
+                      <p className="text-[10px] text-gray-400 font-medium">{n.time}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="p-4 border-t border-purple-100">
+                <button
+                  onClick={() => setIsNotificationsOpen(false)}
+                  className="w-full py-3 text-sm font-bold text-purple-600 hover:bg-purple-50 rounded-xl transition-colors"
+                >
+                  Mark all as read
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Mobile Menu Overlay */}
       <AnimatePresence>
@@ -271,6 +341,8 @@ function AppShell() {
               <Route path="/branding" element={<PrivateRoute><BrandingPage /></PrivateRoute>} />
               <Route path="/ecosystem" element={<PrivateRoute><EcosystemPage /></PrivateRoute>} />
               <Route path="/dashboard" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
+              <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </AnimatePresence>
         </div>

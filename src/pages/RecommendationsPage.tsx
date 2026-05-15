@@ -236,7 +236,7 @@ export default function RecommendationsPage() {
 
                   <div className="pt-4 flex flex-wrap gap-4">
                     <Link
-                      to="/opportunities"
+                      to={`/opportunities?path=${path.id}`}
                       className="px-6 py-3 bg-purple-600 text-white rounded-xl font-bold text-sm hover:bg-purple-700 transition-all flex items-center gap-2"
                     >
                       View Learning Path
@@ -260,6 +260,43 @@ export default function RecommendationsPage() {
           );
         })}
       </div>
+
+      {/* Explore all paths */}
+      {(() => {
+        const recommendedIds = recommendations.map(r => r.id);
+        const otherPaths = CAREER_PATHS.filter(p => !recommendedIds.includes(p.id));
+        if (otherPaths.length === 0) return null;
+        return (
+          <div className="space-y-6">
+            <div className="space-y-1">
+              <h2 className="text-xl md:text-2xl font-bold">Explore Other Paths</h2>
+              <p className="text-gray-500 text-sm">These paths weren't your top match, but they might still interest you.</p>
+            </div>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {otherPaths.map(path => {
+                const Icon = iconMap[path.icon] || Code;
+                return (
+                  <div key={path.id} className="bg-white border border-purple-50 rounded-3xl p-6 space-y-4 hover:shadow-md transition-all group">
+                    <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-all">
+                      <Icon size={24} />
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="font-bold text-gray-900">{path.title}</h3>
+                      <p className="text-xs text-gray-500 leading-relaxed line-clamp-2">{path.whyItFits}</p>
+                    </div>
+                    <Link
+                      to={`/opportunities?path=${path.id}`}
+                      className="text-purple-600 font-bold text-sm flex items-center gap-1 hover:gap-2 transition-all"
+                    >
+                      Explore resources <ArrowRight size={14} />
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-10 lg:p-12 text-white flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8">
         <div className="space-y-3 md:space-y-4 text-center md:text-left">

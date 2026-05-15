@@ -102,15 +102,33 @@ export default function OnboardingPage() {
   });
   const navigate = useNavigate();
 
-  // Pre-fill from Google auth if available
   useEffect(() => {
-    if (user) {
-      setData(d => ({
-        ...d,
-        fullName: d.fullName || user.displayName || '',
-        email: d.email || user.email || '',
-      }));
-    }
+    setData(d => {
+      let next = { ...d };
+      try {
+        const raw = localStorage.getItem('pathher_profile');
+        if (raw) {
+          const saved = JSON.parse(raw);
+          next = {
+            fullName: saved.fullName || next.fullName,
+            email: saved.email || next.email,
+            education: saved.education || next.education,
+            interests: saved.interests?.length > 0 ? saved.interests : next.interests,
+            strengths: saved.strengths?.length > 0 ? saved.strengths : next.strengths,
+            goals: saved.goals?.length > 0 ? saved.goals : next.goals,
+            workStyle: saved.workStyle?.length > 0 ? saved.workStyle : next.workStyle,
+          };
+        }
+      } catch { /* ignore parse errors */ }
+      if (user) {
+        next = {
+          ...next,
+          fullName: next.fullName || user.displayName || '',
+          email: next.email || user.email || '',
+        };
+      }
+      return next;
+    });
   }, [user]);
 
   const step = STEPS[currentStep];

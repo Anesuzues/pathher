@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import {
   Users, TrendingUp, UserCheck, Clock, Search, Download, MoreHorizontal,
-  ArrowUpRight, ArrowDownRight, X, Plus, ChevronDown, Briefcase, XCircle,
+  ArrowUpRight, ArrowDownRight, X, Plus, ChevronDown, Briefcase, XCircle, LayoutDashboard,
 } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
 import { saveRole, loadUserRoles, closeRole, PostedRole } from '../lib/userdata';
@@ -51,6 +51,9 @@ export default function DashboardPage() {
   const [jobPosted, setJobPosted] = useState(false);
   const [postedRoles, setPostedRoles] = useState<PostedRole[]>([]);
   const [isPostingRole, setIsPostingRole] = useState(false);
+  const [isRecruiter, setIsRecruiter] = useState(
+    () => localStorage.getItem('is_recruiter') === 'true'
+  );
   const { user } = useAuth();
 
   useEffect(() => {
@@ -65,6 +68,32 @@ export default function DashboardPage() {
     const q = searchQuery.toLowerCase();
     return q === '' || c.name.toLowerCase().includes(q) || c.path.toLowerCase().includes(q) || c.status.toLowerCase().includes(q);
   });
+
+  if (!isRecruiter) {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center space-y-6 px-4">
+        <div className="w-20 h-20 rounded-3xl bg-purple-50 flex items-center justify-center text-purple-600">
+          <LayoutDashboard size={40} />
+        </div>
+        <div className="space-y-2 max-w-sm">
+          <h1 className="text-2xl font-bold">Recruiter Access Required</h1>
+          <p className="text-gray-500 text-sm leading-relaxed">
+            The talent dashboard is available to verified employers and hiring partners. Request access to unlock candidate analytics and role posting.
+          </p>
+        </div>
+        <button
+          onClick={() => {
+            localStorage.setItem('is_recruiter', 'true');
+            setIsRecruiter(true);
+          }}
+          className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-2xl font-bold hover:shadow-lg hover:shadow-purple-200 transition-all"
+        >
+          Request Recruiter Access
+        </button>
+        <p className="text-xs text-gray-400">For demo purposes, clicking above grants instant access.</p>
+      </div>
+    );
+  }
 
   const handleExportCSV = () => {
     const headers = ['Name', 'Recommended Path', 'Readiness', 'Status'];

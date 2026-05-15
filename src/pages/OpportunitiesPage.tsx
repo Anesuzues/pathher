@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
+import { useSearchParams } from 'react-router-dom';
 import { loadUserField, saveUserField } from '../lib/userdata';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -14,9 +15,9 @@ import {
   BookOpen,
   X,
   Bookmark,
-  ChevronDown
+  ChevronDown,
 } from 'lucide-react';
-import { OPPORTUNITIES } from '../constants';
+import { OPPORTUNITIES, CAREER_PATHS } from '../constants';
 import { cn } from '../lib/utils';
 
 const FILTER_TYPES = ['All', 'Bursary', 'Internship', 'Learnership', 'Graduate Program'] as const;
@@ -65,6 +66,9 @@ export default function OpportunitiesPage() {
     return raw ? JSON.parse(raw) : [];
   });
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const pathParam = searchParams.get('path') || '';
+  const pathLabel = CAREER_PATHS.find(p => p.id === pathParam)?.title || '';
 
   // Load saved opportunities from Firestore on mount
   useEffect(() => {
@@ -85,7 +89,8 @@ export default function OpportunitiesPage() {
       opp.provider.toLowerCase().includes(q) ||
       opp.description.toLowerCase().includes(q);
     const matchesFilter = activeFilter === 'All' || opp.type === activeFilter;
-    return matchesSearch && matchesFilter;
+    const matchesPath = pathParam === '' || (opp.careerPaths || []).includes(pathParam);
+    return matchesSearch && matchesFilter && matchesPath;
   });
 
   const toggleSaveOpp = (id: string) => {
@@ -159,6 +164,22 @@ export default function OpportunitiesPage() {
           </div>
         </div>
       </div>
+
+      {/* Active path filter banner */}
+      {pathParam && (
+        <div className="flex items-center justify-between gap-4 px-5 py-3 bg-purple-50 border border-purple-100 rounded-2xl">
+          <p className="text-sm font-bold text-purple-700">
+            Showing opportunities for: <span className="text-purple-900">{pathLabel}</span>
+          </p>
+          <button
+            onClick={() => setSearchParams({})}
+            className="flex items-center gap-1.5 text-xs font-bold text-purple-500 hover:text-purple-700 transition-colors"
+          >
+            <X size={14} />
+            Clear
+          </button>
+        </div>
+      )}
 
       {/* Featured Opportunity */}
       <motion.div

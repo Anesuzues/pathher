@@ -23,4 +23,5 @@ export interface Opportunity {
   type: 'Bursary' | 'Internship' | 'Learnership' | 'Graduate Program';
   description: string;
   link: string;
+  careerPaths?: string[]; // career path IDs this opportunity is relevant to
 }
