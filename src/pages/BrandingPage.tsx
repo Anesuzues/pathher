@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   FileText, Linkedin, Download, Copy, RefreshCw, Check, Sparkles, Edit3
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { CAREER_PATHS } from '../constants';
 
@@ -68,6 +69,7 @@ function calcProfileCompletion(profile: any): number {
 }
 
 export default function BrandingPage() {
+  const navigate = useNavigate();
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeTab, setActiveTab] = useState<'cv' | 'linkedin'>('cv');
   const [copied, setCopied] = useState(false);
@@ -178,7 +180,11 @@ export default function BrandingPage() {
                 <div className="w-32 h-32 rounded-full border-4 border-purple-100 shadow-lg bg-gradient-to-br from-purple-500 to-pink-400 flex items-center justify-center text-white text-4xl font-black">
                   {displayName.charAt(0).toUpperCase() || 'P'}
                 </div>
-                <button className="absolute bottom-0 right-0 p-2 bg-purple-600 text-white rounded-full shadow-lg hover:bg-purple-700 transition-colors">
+                <button
+                  onClick={() => navigate('/profile')}
+                  title="Edit profile"
+                  className="absolute bottom-0 right-0 p-2 bg-purple-600 text-white rounded-full shadow-lg hover:bg-purple-700 transition-colors"
+                >
                   <Edit3 size={16} />
                 </button>
               </div>

@@ -13,6 +13,7 @@ import {
   User,
   Mail,
   GraduationCap,
+  RefreshCw,
 } from 'lucide-react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -90,6 +91,7 @@ const OPTIONS = {
 export default function OnboardingPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const { user, setHasProfile } = useAuth();
   const [data, setData] = useState<OnboardingData>({
     fullName: '',
@@ -109,6 +111,7 @@ export default function OnboardingPage() {
         const raw = localStorage.getItem('pathher_profile');
         if (raw) {
           const saved = JSON.parse(raw);
+          if (saved.fullName) setIsEditing(true);
           next = {
             fullName: saved.fullName || next.fullName,
             email: saved.email || next.email,
@@ -194,6 +197,15 @@ export default function OnboardingPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-8 py-4">
+      {isEditing && (
+        <div className="flex items-center gap-3 px-5 py-3 bg-purple-50 border border-purple-100 rounded-2xl">
+          <RefreshCw size={16} className="text-purple-600 shrink-0" />
+          <p className="text-sm text-purple-700 font-medium">
+            Updating your existing profile — previous answers are pre-filled.
+          </p>
+        </div>
+      )}
+
       {/* Progress Tracker */}
       <div className="space-y-4">
         <div className="flex justify-between items-end">

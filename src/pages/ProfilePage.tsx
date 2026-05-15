@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   User, Mail, GraduationCap, Check, ArrowLeft, Save, Sparkles,
 } from 'lucide-react';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
@@ -59,10 +59,27 @@ export default function ProfilePage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const raw = localStorage.getItem('pathher_profile');
-    if (raw) {
-      try {
-        const profile = JSON.parse(raw);
+    const load = async () => {
+      let profile: any = null;
+
+      if (user) {
+        try {
+          const snap = await getDoc(doc(db, 'users', user.uid));
+          if (snap.exists() && snap.data()?.profile) {
+            profile = snap.data().profile;
+            localStorage.setItem('pathher_profile', JSON.stringify(profile));
+          }
+        } catch { /* Firestore unavailable — fall through to localStorage */ }
+      }
+
+      if (!profile) {
+        try {
+          const raw = localStorage.getItem('pathher_profile');
+          if (raw) profile = JSON.parse(raw);
+        } catch { /* ignore */ }
+      }
+
+      if (profile) {
         setData({
           fullName: profile.fullName || user?.displayName || '',
           email: profile.email || user?.email || '',
@@ -72,16 +89,15 @@ export default function ProfilePage() {
           goals: profile.goals || [],
           workStyle: profile.workStyle || [],
         });
-        return;
-      } catch { /* ignore */ }
-    }
-    if (user) {
-      setData(d => ({
-        ...d,
-        fullName: user.displayName || '',
-        email: user.email || '',
-      }));
-    }
+      } else if (user) {
+        setData(d => ({
+          ...d,
+          fullName: user.displayName || '',
+          email: user.email || '',
+        }));
+      }
+    };
+    load();
   }, [user]);
 
   const toggleOption = (field: keyof typeof OPTIONS, option: string) => {

@@ -57,8 +57,21 @@ function Navigation({
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [readIds, setReadIds] = useState<Set<number>>(() => {
+    try {
+      const raw = localStorage.getItem('read_notifications');
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch { return new Set(); }
+  });
   const { user, signOut } = useAuth();
-  const unreadCount = NOTIFICATIONS.filter(n => n.unread).length;
+  const unreadCount = NOTIFICATIONS.filter(n => n.unread && !readIds.has(n.id)).length;
+
+  const markAllRead = () => {
+    const allIds = NOTIFICATIONS.map(n => n.id);
+    setReadIds(new Set(allIds));
+    localStorage.setItem('read_notifications', JSON.stringify(allIds));
+    setIsNotificationsOpen(false);
+  };
 
   const navItems = [
     { path: '/', label: 'Home', icon: Home },
@@ -217,23 +230,27 @@ function Navigation({
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto divide-y divide-purple-50">
-                {NOTIFICATIONS.map(n => (
-                  <div key={n.id} className={cn('p-5 flex gap-3', n.unread && 'bg-purple-50/50')}>
-                    <div className={cn('w-2 h-2 rounded-full mt-1.5 shrink-0', n.unread ? 'bg-purple-600' : 'bg-gray-200')} />
-                    <div className="space-y-1 flex-1">
-                      <p className="font-bold text-sm text-gray-900">{n.title}</p>
-                      <p className="text-xs text-gray-500 leading-relaxed">{n.body}</p>
-                      <p className="text-[10px] text-gray-400 font-medium">{n.time}</p>
+                {NOTIFICATIONS.map(n => {
+                  const isRead = readIds.has(n.id) || !n.unread;
+                  return (
+                    <div key={n.id} className={cn('p-5 flex gap-3', !isRead && 'bg-purple-50/50')}>
+                      <div className={cn('w-2 h-2 rounded-full mt-1.5 shrink-0', !isRead ? 'bg-purple-600' : 'bg-gray-200')} />
+                      <div className="space-y-1 flex-1">
+                        <p className="font-bold text-sm text-gray-900">{n.title}</p>
+                        <p className="text-xs text-gray-500 leading-relaxed">{n.body}</p>
+                        <p className="text-[10px] text-gray-400 font-medium">{n.time}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               <div className="p-4 border-t border-purple-100">
                 <button
-                  onClick={() => setIsNotificationsOpen(false)}
-                  className="w-full py-3 text-sm font-bold text-purple-600 hover:bg-purple-50 rounded-xl transition-colors"
+                  onClick={markAllRead}
+                  disabled={unreadCount === 0}
+                  className="w-full py-3 text-sm font-bold text-purple-600 hover:bg-purple-50 rounded-xl transition-colors disabled:text-gray-300 disabled:cursor-default"
                 >
-                  Mark all as read
+                  {unreadCount === 0 ? 'All caught up' : 'Mark all as read'}
                 </button>
               </div>
             </motion.div>
@@ -283,18 +300,26 @@ function Navigation({
               </div>
 
               {user && (
-                <div className="px-4">
-                  <div className="flex items-center gap-3 p-4 bg-purple-50 rounded-2xl">
+                <div className="px-4 space-y-2">
+                  <Link
+                    to="/profile"
+                    onClick={toggleMobileMenu}
+                    className="flex items-center gap-3 p-4 bg-purple-50 rounded-2xl hover:bg-purple-100 transition-colors group"
+                  >
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-400 flex items-center justify-center text-white text-sm font-black shrink-0">
                       {initials}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-gray-900 truncate">{displayName}</p>
-                      <button onClick={() => { signOut(); toggleMobileMenu(); }} className="text-xs text-gray-400 hover:text-red-500 transition-colors font-bold flex items-center gap-1 mt-0.5">
-                        <LogOut size={12} /> Sign out
-                      </button>
+                      <p className="text-sm font-bold text-gray-900 truncate group-hover:text-purple-700 transition-colors">{displayName}</p>
+                      <p className="text-[10px] text-purple-500 font-bold uppercase tracking-wider">Edit Profile →</p>
                     </div>
-                  </div>
+                  </Link>
+                  <button
+                    onClick={() => { signOut(); toggleMobileMenu(); }}
+                    className="w-full flex items-center justify-center gap-2 p-3 text-sm text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-colors font-bold"
+                  >
+                    <LogOut size={16} /> Sign Out
+                  </button>
                 </div>
               )}
 

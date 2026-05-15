@@ -1,7 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Mail, Lock, User, Eye, EyeOff, ArrowRight, AlertCircle } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, ArrowRight, AlertCircle, CheckCircle2, ChevronLeft } from 'lucide-react';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 
@@ -28,7 +30,7 @@ function GoogleIcon() {
 }
 
 export default function AuthPage() {
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>('signin');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -36,6 +38,7 @@ export default function AuthPage() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   const { signIn, signUp, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
@@ -74,6 +77,20 @@ export default function AuthPage() {
     }
   };
 
+  const handleReset = async (e: FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setResetSent(true);
+    } catch (err: any) {
+      setError(FIREBASE_ERRORS[err.code] || 'Failed to send reset email. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const switchMode = () => {
     setMode(m => m === 'signin' ? 'signup' : 'signin');
     setError('');
@@ -95,23 +112,100 @@ export default function AuthPage() {
 
         {/* Card */}
         <div className="bg-white rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 lg:p-10 shadow-sm border border-purple-50 space-y-6">
-          {/* Tab toggle */}
-          <div className="flex bg-purple-50 rounded-2xl p-1">
-            {(['signin', 'signup'] as const).map(m => (
-              <button
-                key={m}
-                onClick={() => { setMode(m); setError(''); }}
-                className={cn(
-                  'flex-1 py-3 rounded-xl font-bold text-sm transition-all',
-                  mode === m ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-400 hover:text-gray-600'
-                )}
-              >
-                {m === 'signin' ? 'Sign In' : 'Create Account'}
-              </button>
-            ))}
-          </div>
+          {/* Tab toggle — hidden in reset mode */}
+          {mode !== 'reset' && (
+            <div className="flex bg-purple-50 rounded-2xl p-1">
+              {(['signin', 'signup'] as const).map(m => (
+                <button
+                  key={m}
+                  onClick={() => { setMode(m); setError(''); }}
+                  className={cn(
+                    'flex-1 py-3 rounded-xl font-bold text-sm transition-all',
+                    mode === m ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-400 hover:text-gray-600'
+                  )}
+                >
+                  {m === 'signin' ? 'Sign In' : 'Create Account'}
+                </button>
+              ))}
+            </div>
+          )}
 
           <AnimatePresence mode="wait">
+            {mode === 'reset' && (
+              <motion.div
+                key="reset"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2 }}
+                className="space-y-5"
+              >
+                {resetSent ? (
+                  <div className="text-center space-y-4 py-4">
+                    <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto">
+                      <CheckCircle2 size={32} className="text-green-500" />
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="font-bold text-gray-900">Check your inbox</h3>
+                      <p className="text-sm text-gray-500">A password reset link was sent to <span className="font-bold text-gray-700">{email}</span>.</p>
+                    </div>
+                    <button
+                      onClick={() => { setMode('signin'); setResetSent(false); setError(''); }}
+                      className="w-full py-3 bg-purple-600 text-white rounded-2xl font-bold text-sm hover:bg-purple-700 transition-all"
+                    >
+                      Back to Sign In
+                    </button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleReset} className="space-y-4">
+                    <button
+                      type="button"
+                      onClick={() => { setMode('signin'); setError(''); }}
+                      className="flex items-center gap-1.5 text-sm font-bold text-gray-400 hover:text-purple-600 transition-colors"
+                    >
+                      <ChevronLeft size={16} /> Back to Sign In
+                    </button>
+                    <div className="space-y-1">
+                      <h3 className="font-bold text-gray-900">Reset your password</h3>
+                      <p className="text-sm text-gray-500">Enter your email and we'll send you a reset link.</p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-bold text-gray-700 ml-1">Email Address</label>
+                      <div className="relative">
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                        <input
+                          type="email"
+                          value={email}
+                          onChange={e => setEmail(e.target.value)}
+                          required
+                          placeholder="you@example.com"
+                          className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border-2 border-transparent focus:border-purple-500 focus:bg-white rounded-2xl outline-none font-medium text-sm transition-all"
+                        />
+                      </div>
+                    </div>
+                    {error && (
+                      <div className="flex items-center gap-2 p-3 bg-red-50 text-red-600 rounded-xl text-sm font-medium">
+                        <AlertCircle size={16} className="shrink-0" />
+                        {error}
+                      </div>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-purple-200 hover:shadow-purple-300 transition-all disabled:opacity-70"
+                    >
+                      {isLoading ? (
+                        <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <>Send Reset Link <ArrowRight size={18} /></>
+                      )}
+                    </button>
+                  </form>
+                )}
+              </motion.div>
+            )}
+
+            {mode !== 'reset' && (
             <motion.form
               key={mode}
               initial={{ opacity: 0, y: 8 }}
@@ -176,6 +270,18 @@ export default function AuthPage() {
                 </div>
               </div>
 
+              {mode === 'signin' && (
+                <div className="flex justify-end -mt-1">
+                  <button
+                    type="button"
+                    onClick={() => { setMode('reset'); setError(''); }}
+                    className="text-xs font-bold text-purple-600 hover:underline"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+              )}
+
               {error && (
                 <motion.div
                   initial={{ opacity: 0, y: -4 }}
@@ -202,37 +308,42 @@ export default function AuthPage() {
                 )}
               </button>
             </motion.form>
+            )}
           </AnimatePresence>
 
-          {/* Divider */}
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-px bg-gray-100" />
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">or</span>
-            <div className="flex-1 h-px bg-gray-100" />
-          </div>
+          {mode !== 'reset' && (
+            <>
+              {/* Divider */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-gray-100" />
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">or</span>
+                <div className="flex-1 h-px bg-gray-100" />
+              </div>
 
-          {/* Google */}
-          <button
-            onClick={handleGoogle}
-            disabled={isGoogleLoading}
-            className="w-full py-4 bg-white border-2 border-gray-100 rounded-2xl font-bold text-gray-700 flex items-center justify-center gap-3 hover:border-purple-200 hover:bg-purple-50/50 transition-all disabled:opacity-70"
-          >
-            {isGoogleLoading ? (
-              <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-            ) : (
-              <>
-                <GoogleIcon />
-                Continue with Google
-              </>
-            )}
-          </button>
+              {/* Google */}
+              <button
+                onClick={handleGoogle}
+                disabled={isGoogleLoading}
+                className="w-full py-4 bg-white border-2 border-gray-100 rounded-2xl font-bold text-gray-700 flex items-center justify-center gap-3 hover:border-purple-200 hover:bg-purple-50/50 transition-all disabled:opacity-70"
+              >
+                {isGoogleLoading ? (
+                  <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <GoogleIcon />
+                    Continue with Google
+                  </>
+                )}
+              </button>
 
-          <p className="text-center text-sm text-gray-500">
-            {mode === 'signin' ? "Don't have an account? " : 'Already have an account? '}
-            <button onClick={switchMode} className="font-bold text-purple-600 hover:underline">
-              {mode === 'signin' ? 'Sign up free' : 'Sign in'}
-            </button>
-          </p>
+              <p className="text-center text-sm text-gray-500">
+                {mode === 'signin' ? "Don't have an account? " : 'Already have an account? '}
+                <button onClick={switchMode} className="font-bold text-purple-600 hover:underline">
+                  {mode === 'signin' ? 'Sign up free' : 'Sign in'}
+                </button>
+              </p>
+            </>
+          )}
         </div>
 
         <p className="text-center text-xs text-gray-400 font-medium">
