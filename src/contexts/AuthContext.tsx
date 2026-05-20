@@ -3,7 +3,8 @@ import {
   User,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut as firebaseSignOut,
   onAuthStateChanged,
   updateProfile,
@@ -30,12 +31,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [hasProfile, setHasProfile] = useState(false);
 
   useEffect(() => {
-    // If Firebase is not initialized, set loading to false immediately
     if (!auth) {
       console.warn('Firebase Auth is not initialized. Running in demo mode.');
       setLoading(false);
       return;
     }
+
+    // Resolve any pending Google redirect sign-in
+    getRedirectResult(auth).catch((err) => {
+      console.error('Google redirect error:', err?.code, err?.message);
+    });
 
     const unsub = onAuthStateChanged(auth, async (u) => {
       setUser(u);
@@ -69,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = async () => {
     if (!auth) throw new Error('Firebase Auth is not initialized');
-    await signInWithPopup(auth, googleProvider);
+    await signInWithRedirect(auth, googleProvider);
   };
 
   const signOut = async () => {

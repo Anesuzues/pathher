@@ -8,23 +8,48 @@ import { Timestamp } from 'firebase/firestore';
 import { loadUserField, saveUserField, saveMentorRequest } from '../lib/userdata';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
+import { callGeminiJSON } from '../lib/gemini';
+
+const PARTNER_COLORS = [
+  'bg-blue-600', 'bg-purple-600', 'bg-orange-500', 'bg-green-600',
+  'bg-indigo-600', 'bg-red-600', 'bg-teal-600', 'bg-pink-600',
+  'bg-yellow-600', 'bg-cyan-600', 'bg-emerald-600', 'bg-violet-600',
+];
 
 const BASE_PARTNERS = [
-  { name: 'Standard Bank', logo: 'https://picsum.photos/seed/sb/100/100', industries: ['Finance', 'Tech'] },
-  { name: 'Discovery', logo: 'https://picsum.photos/seed/disc/100/100', industries: ['Healthcare', 'Data'] },
-  { name: 'Takealot', logo: 'https://picsum.photos/seed/tk/100/100', industries: ['E-commerce', 'Logistics'] },
-  { name: 'OfferZen', logo: 'https://picsum.photos/seed/oz/100/100', industries: ['Tech Recruitment'] },
-  { name: 'Entelect', logo: 'https://picsum.photos/seed/ent/100/100', industries: ['Software', 'Consulting'] },
-  { name: 'Absa', logo: 'https://picsum.photos/seed/absa/100/100', industries: ['Finance', 'Digital'] },
+  { name: 'Standard Bank', industries: ['Finance', 'Tech'] },
+  { name: 'Discovery', industries: ['Healthcare', 'Data'] },
+  { name: 'Takealot', industries: ['E-commerce', 'Logistics'] },
+  { name: 'OfferZen', industries: ['Tech Recruitment'] },
+  { name: 'Entelect', industries: ['Software', 'Consulting'] },
+  { name: 'Absa', industries: ['Finance', 'Digital'] },
 ];
 
 const EXTRA_PARTNERS = [
-  { name: 'Capitec Bank', logo: 'https://picsum.photos/seed/cap/100/100', industries: ['Finance', 'Fintech'] },
-  { name: 'Vodacom', logo: 'https://picsum.photos/seed/voda/100/100', industries: ['Telecoms', 'Tech'] },
-  { name: 'MTN', logo: 'https://picsum.photos/seed/mtn/100/100', industries: ['Telecoms', 'Digital'] },
-  { name: 'Old Mutual', logo: 'https://picsum.photos/seed/om/100/100', industries: ['Finance', 'Insurance'] },
-  { name: 'WeThinkCode_', logo: 'https://picsum.photos/seed/wtc/100/100', industries: ['Education', 'Tech'] },
-  { name: 'Amazon SA', logo: 'https://picsum.photos/seed/amz/100/100', industries: ['Tech', 'E-commerce'] },
+  { name: 'Capitec Bank', industries: ['Finance', 'Fintech'] },
+  { name: 'Vodacom', industries: ['Telecoms', 'Tech'] },
+  { name: 'MTN', industries: ['Telecoms', 'Digital'] },
+  { name: 'Old Mutual', industries: ['Finance', 'Insurance'] },
+  { name: 'WeThinkCode_', industries: ['Education', 'Tech'] },
+  { name: 'Amazon SA', industries: ['Tech', 'E-commerce'] },
+];
+
+type ActivityItem = { user: string; action: string; time: string };
+
+const FALLBACK_ACTIVITY: ActivityItem[] = [
+  { user: 'Lerato M.', action: 'joined Standard Bank as Intern', time: '2h ago' },
+  { user: 'Sarah K.', action: 'completed UX Design Path', time: '5h ago' },
+  { user: 'Zanele T.', action: 'matched with 3 recruiters', time: '1d ago' },
+  { user: 'Thandi P.', action: 'updated her professional bio', time: '1d ago' },
+];
+
+const ACTIVITY_PROMPT = `Return ONLY valid JSON array, no markdown. Generate 4 community activity items for a South African women career network called PathHer: [{"user":"Name I.","action":"career achievement description","time":"Xh ago"},...] Use South African female names. Mix: joined company, completed course, matched with recruiter, updated profile.`;
+
+const ACTIVITY_COLORS = [
+  'from-purple-500 to-pink-400',
+  'from-blue-500 to-cyan-400',
+  'from-emerald-500 to-teal-400',
+  'from-orange-500 to-amber-400',
 ];
 
 export default function EcosystemPage() {
@@ -35,6 +60,7 @@ export default function EcosystemPage() {
   const [mentorMessage, setMentorMessage] = useState('');
   const [mentorSent, setMentorSent] = useState(false);
   const [isSendingMentor, setIsSendingMentor] = useState(false);
+  const [activity, setActivity] = useState<ActivityItem[]>(FALLBACK_ACTIVITY);
   const { user } = useAuth();
 
   // Sync join status from Firestore on mount
@@ -47,6 +73,18 @@ export default function EcosystemPage() {
       }
     });
   }, [user]);
+
+  useEffect(() => {
+    const key = 'pathher_ai_activity';
+    try {
+      const cached = sessionStorage.getItem(key);
+      if (cached) { setActivity(JSON.parse(cached)); return; }
+    } catch {}
+    callGeminiJSON<ActivityItem[]>(ACTIVITY_PROMPT, FALLBACK_ACTIVITY).then(data => {
+      setActivity(data);
+      sessionStorage.setItem(key, JSON.stringify(data));
+    });
+  }, []);
 
   const handleJoin = () => {
     setIsJoined(true);
@@ -248,8 +286,8 @@ export default function EcosystemPage() {
                 whileHover={{ y: -5 }}
                 className="bg-white p-6 rounded-3xl border border-purple-50 shadow-sm flex items-center gap-6 group cursor-pointer"
               >
-                <div className="w-16 h-16 rounded-2xl overflow-hidden border border-gray-100 shrink-0">
-                  <img src={partner.logo} alt={partner.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                <div className={`w-16 h-16 rounded-2xl ${PARTNER_COLORS[i % PARTNER_COLORS.length]} flex items-center justify-center text-white text-2xl font-black shrink-0`}>
+                  {partner.name[0]}
                 </div>
                 <div className="space-y-1">
                   <h3 className="font-bold text-lg group-hover:text-purple-600 transition-colors">{partner.name}</h3>
@@ -296,20 +334,17 @@ export default function EcosystemPage() {
         <div className="space-y-8">
           <h2 className="text-2xl font-bold">Community Activity</h2>
           <div className="space-y-6">
-            {[
-              { user: 'Lerato M.', action: 'joined Standard Bank as Intern', time: '2h ago', img: 'https://picsum.photos/seed/l/50/50' },
-              { user: 'Sarah K.', action: 'completed UX Design Path', time: '5h ago', img: 'https://picsum.photos/seed/s/50/50' },
-              { user: 'Zanele T.', action: 'matched with 3 recruiters', time: '1d ago', img: 'https://picsum.photos/seed/z/50/50' },
-              { user: 'Thandi P.', action: 'updated her professional bio', time: '1d ago', img: 'https://picsum.photos/seed/t/50/50' },
-            ].map((activity, i) => (
+            {activity.map((item, i) => (
               <div key={i} className="flex gap-4 items-start">
-                <img src={activity.img} alt={activity.user} className="w-10 h-10 rounded-full object-cover shrink-0" referrerPolicy="no-referrer" />
+                <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${ACTIVITY_COLORS[i % ACTIVITY_COLORS.length]} flex items-center justify-center text-white text-xs font-black shrink-0`}>
+                  {item.user.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                </div>
                 <div className="space-y-1">
                   <p className="text-sm">
-                    <span className="font-bold text-gray-900">{activity.user}</span>
-                    <span className="text-gray-600"> {activity.action}</span>
+                    <span className="font-bold text-gray-900">{item.user}</span>
+                    <span className="text-gray-600"> {item.action}</span>
                   </p>
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{activity.time}</p>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{item.time}</p>
                 </div>
               </div>
             ))}

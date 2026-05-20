@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { Component, useState, type ReactNode } from 'react';
+import { Component, useState, useEffect, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Home, User, Briefcase, GraduationCap, LayoutDashboard,
@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { cn } from './lib/utils';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { callGeminiJSON } from './lib/gemini';
 
 // Pages
 import LandingPage from './pages/LandingPage';
@@ -68,12 +69,16 @@ function PrivateRoute({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-const NOTIFICATIONS = [
+type NotifItem = { id: number; title: string; body: string; time: string; unread: boolean };
+
+const FALLBACK_NOTIFICATIONS: NotifItem[] = [
   { id: 1, title: 'Career match ready!', body: 'Your PathHer AI career recommendations are live.', time: '2 min ago', unread: true },
   { id: 2, title: 'New opportunity added', body: 'Entelect Graduate Programme 2026 applications are now open.', time: '1 hr ago', unread: true },
   { id: 3, title: 'Profile incomplete', body: 'Complete your work style preferences to improve your match score.', time: '2 hrs ago', unread: false },
   { id: 4, title: 'Application deadline', body: "WeThinkCode_ applications close in 7 days. Don't miss out!", time: '1 day ago', unread: false },
 ];
+
+const NOTIF_PROMPT = `Return ONLY valid JSON array, no markdown. Generate 4 notifications for PathHer, a South African women career development app: [{"id":1,"title":"Short title","body":"Helpful brief text.","time":"X min ago","unread":true},{"id":2,...,"unread":true},{"id":3,...,"unread":false},{"id":4,...,"unread":false}] Mix: career recommendations, new opportunities, profile tips, application deadlines.`;
 
 function Navigation({
   isCollapsed, setIsCollapsed, isHovered, setIsHovered,
@@ -86,6 +91,7 @@ function Navigation({
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<NotifItem[]>(FALLBACK_NOTIFICATIONS);
   const [readIds, setReadIds] = useState<Set<number>>(() => {
     try {
       const raw = localStorage.getItem('read_notifications');
@@ -93,10 +99,23 @@ function Navigation({
     } catch { return new Set(); }
   });
   const { user, signOut } = useAuth();
-  const unreadCount = NOTIFICATIONS.filter(n => n.unread && !readIds.has(n.id)).length;
+  const unreadCount = notifications.filter(n => n.unread && !readIds.has(n.id)).length;
+
+  useEffect(() => {
+    if (!user) return;
+    const key = 'pathher_ai_notifications';
+    try {
+      const cached = sessionStorage.getItem(key);
+      if (cached) { setNotifications(JSON.parse(cached)); return; }
+    } catch {}
+    callGeminiJSON<NotifItem[]>(NOTIF_PROMPT, FALLBACK_NOTIFICATIONS).then(data => {
+      setNotifications(data);
+      sessionStorage.setItem(key, JSON.stringify(data));
+    });
+  }, [user]);
 
   const markAllRead = () => {
-    const allIds = NOTIFICATIONS.map(n => n.id);
+    const allIds = notifications.map(n => n.id);
     setReadIds(new Set(allIds));
     localStorage.setItem('read_notifications', JSON.stringify(allIds));
     setIsNotificationsOpen(false);
@@ -259,7 +278,7 @@ function Navigation({
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto divide-y divide-purple-50">
-                {NOTIFICATIONS.map(n => {
+                {notifications.map(n => {
                   const isRead = readIds.has(n.id) || !n.unread;
                   return (
                     <div key={n.id} className={cn('p-5 flex gap-3', !isRead && 'bg-purple-50/50')}>

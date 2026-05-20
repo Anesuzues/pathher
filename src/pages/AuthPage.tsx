@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Mail, Lock, User, Eye, EyeOff, ArrowRight, AlertCircle, CheckCircle2, ChevronLeft } from 'lucide-react';
@@ -15,7 +15,13 @@ const FIREBASE_ERRORS: Record<string, string> = {
   'auth/wrong-password': 'Incorrect password. Please try again.',
   'auth/invalid-credential': 'Incorrect email or password.',
   'auth/popup-closed-by-user': 'Google sign-in was cancelled.',
+  'auth/cancelled-popup-request': 'Google sign-in was cancelled.',
+  'auth/popup-blocked': 'Pop-up was blocked by your browser. Please allow pop-ups for this site and try again.',
   'auth/too-many-requests': 'Too many attempts. Please try again later.',
+  'auth/network-request-failed': 'Network error. Please check your connection and try again.',
+  'auth/unauthorized-domain': 'This domain is not authorised. Add it in Firebase Console → Authentication → Authorised Domains.',
+  'auth/operation-not-allowed': 'Google sign-in is not enabled. Enable it in Firebase Console → Authentication → Sign-in Method.',
+  'auth/internal-error': 'An internal authentication error occurred. Please try again.',
 };
 
 function GoogleIcon() {
@@ -40,10 +46,15 @@ export default function AuthPage() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
 
-  const { signIn, signUp, signInWithGoogle } = useAuth();
+  const { signIn, signUp, signInWithGoogle, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as any)?.from?.pathname || null;
+
+  // After Google redirect returns, user will be set — navigate automatically
+  useEffect(() => {
+    if (user) navigate(from || '/recommendations', { replace: true });
+  }, [user]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -69,10 +80,10 @@ export default function AuthPage() {
     setIsGoogleLoading(true);
     try {
       await signInWithGoogle();
-      navigate(from || '/recommendations');
+      // signInWithRedirect navigates away — code below only runs if it throws
     } catch (err: any) {
-      setError(FIREBASE_ERRORS[err.code] || 'Google sign-in failed. Please try again.');
-    } finally {
+      console.error('Google sign-in error:', err.code, err.message);
+      setError(FIREBASE_ERRORS[err.code] || `Google sign-in failed (${err.code || 'unknown'}). Please try again.`);
       setIsGoogleLoading(false);
     }
   };

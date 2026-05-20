@@ -12,6 +12,7 @@ import { Timestamp } from 'firebase/firestore';
 import { saveRole, loadUserRoles, closeRole, loadUserField, saveUserField, PostedRole } from '../lib/userdata';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
+import { callGeminiJSON } from '../lib/gemini';
 
 const AVATAR_COLORS = [
   'from-purple-500 to-pink-400',
@@ -30,7 +31,20 @@ function getAvatarColor(name: string): string {
   return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
 }
 
-const chartData = [
+type StatData = { label: string; value: string; change: string; trend: 'up' | 'down' };
+type Candidate = { name: string; path: string; readiness: string; status: string };
+
+const COLORS = ['#9333ea', '#ec4899', '#6366f1', '#f43f5e'];
+const STAT_ICONS = [Users, TrendingUp, UserCheck, Clock];
+
+const FALLBACK_STATS: StatData[] = [
+  { label: 'Total Talent', value: '15,420', change: '+12.5%', trend: 'up' },
+  { label: 'Active Roles', value: '1,245', change: '+5.2%', trend: 'up' },
+  { label: 'Hired This Month', value: '384', change: '-2.1%', trend: 'down' },
+  { label: 'Avg. Time to Hire', value: '18 Days', change: '+1.4%', trend: 'up' },
+];
+
+const FALLBACK_CHART = [
   { name: 'Jan', value: 400 },
   { name: 'Feb', value: 300 },
   { name: 'Mar', value: 600 },
@@ -39,16 +53,14 @@ const chartData = [
   { name: 'Jun', value: 900 },
 ];
 
-const pieData = [
+const FALLBACK_PIE = [
   { name: 'Tech', value: 45 },
   { name: 'Business', value: 25 },
   { name: 'Creative', value: 20 },
   { name: 'Other', value: 10 },
 ];
 
-const COLORS = ['#9333ea', '#ec4899', '#6366f1', '#f43f5e'];
-
-const ALL_CANDIDATES = [
+const FALLBACK_CANDIDATES: Candidate[] = [
   { name: 'Nompumelelo D.', path: 'Software Developer', readiness: '95%', status: 'Available' },
   { name: 'Lerato M.', path: 'Data Analyst', readiness: '88%', status: 'Interviewing' },
   { name: 'Sarah K.', path: 'UX Designer', readiness: '92%', status: 'Available' },
@@ -58,6 +70,8 @@ const ALL_CANDIDATES = [
   { name: 'Palesa M.', path: 'UX Designer', readiness: '87%', status: 'Available' },
   { name: 'Aisha K.', path: 'Digital Marketing', readiness: '93%', status: 'Hired' },
 ];
+
+const DASHBOARD_PROMPT = `Return ONLY valid JSON, no markdown. Generate data for a South African women-in-tech platform: {"stats":[{"label":"Total Talent","value":"15,420","change":"+12.5%","trend":"up"},{"label":"Active Roles","value":"1,245","change":"+5.2%","trend":"up"},{"label":"Hired This Month","value":"384","change":"-2.1%","trend":"down"},{"label":"Avg. Time to Hire","value":"18 Days","change":"+1.4%","trend":"up"}],"chartData":[{"name":"Jan","value":400},{"name":"Feb","value":300},{"name":"Mar","value":600},{"name":"Apr","value":800},{"name":"May","value":500},{"name":"Jun","value":900}],"pieData":[{"name":"Tech","value":45},{"name":"Business","value":25},{"name":"Creative","value":20},{"name":"Other","value":10}],"candidates":[{"name":"Nompumelelo D.","path":"Software Developer","readiness":"95%","status":"Available"},{"name":"Lerato M.","path":"Data Analyst","readiness":"88%","status":"Interviewing"},{"name":"Sarah K.","path":"UX Designer","readiness":"92%","status":"Available"},{"name":"Zanele T.","path":"Digital Marketing","readiness":"84%","status":"Hired"},{"name":"Thandi P.","path":"Software Developer","readiness":"78%","status":"Available"},{"name":"Nomsa B.","path":"Data Analyst","readiness":"91%","status":"Interviewing"},{"name":"Palesa M.","path":"UX Designer","readiness":"87%","status":"Available"},{"name":"Aisha K.","path":"Digital Marketing","readiness":"93%","status":"Hired"}]} Vary numbers and South African female names each time.`;
 
 export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -70,7 +84,32 @@ export default function DashboardPage() {
   const [isPostingRole, setIsPostingRole] = useState(false);
   const [isRecruiter, setIsRecruiter] = useState(false);
   const [roleLoading, setRoleLoading] = useState(true);
+  const [dashStats, setDashStats] = useState<StatData[]>(FALLBACK_STATS);
+  const [aiChartData, setAiChartData] = useState(FALLBACK_CHART);
+  const [aiPieData, setAiPieData] = useState(FALLBACK_PIE);
+  const [candidates, setCandidates] = useState<Candidate[]>(FALLBACK_CANDIDATES);
   const { user } = useAuth();
+
+  const loadAIData = async () => {
+    const key = 'pathher_ai_dashboard';
+    try {
+      const cached = sessionStorage.getItem(key);
+      if (cached) {
+        const d = JSON.parse(cached);
+        if (d.stats) setDashStats(d.stats);
+        if (d.chartData) setAiChartData(d.chartData);
+        if (d.pieData) setAiPieData(d.pieData);
+        if (d.candidates) setCandidates(d.candidates);
+        return;
+      }
+    } catch {}
+    const d = await callGeminiJSON<Record<string, unknown>>(DASHBOARD_PROMPT, {});
+    if (d.stats) setDashStats(d.stats as StatData[]);
+    if (d.chartData) setAiChartData(d.chartData as typeof FALLBACK_CHART);
+    if (d.pieData) setAiPieData(d.pieData as typeof FALLBACK_PIE);
+    if (d.candidates) setCandidates(d.candidates as Candidate[]);
+    if (Object.keys(d).length) sessionStorage.setItem(key, JSON.stringify(d));
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -81,10 +120,11 @@ export default function DashboardPage() {
       setIsRecruiter(recruiter);
       setPostedRoles(roles.sort((a, b) => b.createdAt.seconds - a.createdAt.seconds));
       setRoleLoading(false);
+      if (recruiter) loadAIData();
     });
   }, [user]);
 
-  const visibleCandidates = showAll ? ALL_CANDIDATES : ALL_CANDIDATES.slice(0, 4);
+  const visibleCandidates = showAll ? candidates : candidates.slice(0, 4);
   const filteredCandidates = visibleCandidates.filter(c => {
     const q = searchQuery.toLowerCase();
     return q === '' || c.name.toLowerCase().includes(q) || c.path.toLowerCase().includes(q) || c.status.toLowerCase().includes(q);
@@ -129,7 +169,7 @@ export default function DashboardPage() {
 
   const handleExportCSV = () => {
     const headers = ['Name', 'Recommended Path', 'Readiness', 'Status'];
-    const rows = ALL_CANDIDATES.map(c => [c.name, c.path, c.readiness, c.status]);
+    const rows = candidates.map(c => [c.name, c.path, c.readiness, c.status]);
     const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -264,7 +304,7 @@ export default function DashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 md:gap-6">
         <div className="space-y-1">
           <h1 className="text-2xl md:text-3xl font-bold">Recruiter Dashboard</h1>
-          <p className="text-gray-500 text-sm md:text-base">Welcome back, Nobztech Admin. Here's what's happening today.</p>
+          <p className="text-gray-500 text-sm md:text-base">Welcome back, {user?.displayName?.split(' ')[0] || 'there'}. Here's what's happening today.</p>
         </div>
         <div className="flex flex-wrap gap-3">
           <button
@@ -286,16 +326,13 @@ export default function DashboardPage() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {[
-          { label: 'Total Talent', value: '15,420', change: '+12.5%', trend: 'up', icon: Users },
-          { label: 'Active Roles', value: '1,245', change: '+5.2%', trend: 'up', icon: TrendingUp },
-          { label: 'Hired This Month', value: '384', change: '-2.1%', trend: 'down', icon: UserCheck },
-          { label: 'Avg. Time to Hire', value: '18 Days', change: '+1.4%', trend: 'up', icon: Clock },
-        ].map((stat, i) => (
+        {dashStats.map((stat, i) => {
+          const Icon = STAT_ICONS[i];
+          return (
           <div key={i} className="bg-white p-6 rounded-3xl border border-purple-50 shadow-sm space-y-4">
             <div className="flex justify-between items-start">
               <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center">
-                <stat.icon size={24} />
+                <Icon size={24} />
               </div>
               <div className={cn(
                 'flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full',
@@ -310,7 +347,8 @@ export default function DashboardPage() {
               <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Charts */}
@@ -325,7 +363,7 @@ export default function DashboardPage() {
           </div>
           <div className="h-[220px] sm:h-[260px] md:h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
+              <BarChart data={aiChartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#9ca3af' }} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#9ca3af' }} />
@@ -341,8 +379,8 @@ export default function DashboardPage() {
           <div className="h-[200px] sm:h-[230px] md:h-[250px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                  {pieData.map((_, index) => (
+                <Pie data={aiPieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                  {aiPieData.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -351,7 +389,7 @@ export default function DashboardPage() {
             </ResponsiveContainer>
           </div>
           <div className="space-y-3">
-            {pieData.map((item, i) => (
+            {aiPieData.map((item, i) => (
               <div key={i} className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[i] }}></div>
@@ -489,7 +527,7 @@ export default function DashboardPage() {
             onClick={() => setShowAll(!showAll)}
             className="text-purple-600 font-bold text-sm hover:underline"
           >
-            {showAll ? 'Show Less' : `View All Candidates (${ALL_CANDIDATES.length})`}
+            {showAll ? 'Show Less' : `View All Candidates (${candidates.length})`}
           </button>
         </div>
       </div>
