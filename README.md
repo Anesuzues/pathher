@@ -131,18 +131,23 @@ Use **test mode** for development, then apply the rules below before going to pr
 
 ### 4. Add your config
 
-Edit [src/lib/firebase.ts](src/lib/firebase.ts) with the credentials from your Firebase web app:
+Create a `.env` file in the root directory with your Firebase credentials:
 
-```ts
-const firebaseConfig = {
-  apiKey:            "YOUR_API_KEY",
-  authDomain:        "YOUR_PROJECT.firebaseapp.com",
-  projectId:         "YOUR_PROJECT_ID",
-  storageBucket:     "YOUR_PROJECT.firebasestorage.app",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId:             "YOUR_APP_ID",
-};
+```env
+# Gemini AI (server-side only)
+GEMINI_API_KEY=your_gemini_api_key_here
+
+# Firebase (client-side - VITE_ prefix required)
+VITE_FIREBASE_API_KEY=your_firebase_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your-project-id
+VITE_FIREBASE_STORAGE_BUCKET=your-project.firebasestorage.app
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+VITE_FIREBASE_APP_ID=your_app_id
+VITE_FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
 ```
+
+**Important**: All Firebase variables must have the `VITE_` prefix to be accessible in the browser.
 
 ### 5. Firestore security rules
 
@@ -173,6 +178,40 @@ service cloud.firestore {
   }
 }
 ```
+
+---
+
+## Deployment to Vercel
+
+### Quick Deploy
+
+1. Push your code to GitHub
+2. Go to [vercel.com](https://vercel.com) and sign in
+3. Click "New Project" and import your repository
+4. **Add environment variables** in the Vercel dashboard:
+   - `VITE_FIREBASE_API_KEY`
+   - `VITE_FIREBASE_AUTH_DOMAIN`
+   - `VITE_FIREBASE_PROJECT_ID`
+   - `VITE_FIREBASE_STORAGE_BUCKET`
+   - `VITE_FIREBASE_MESSAGING_SENDER_ID`
+   - `VITE_FIREBASE_APP_ID`
+   - `VITE_FIREBASE_MEASUREMENT_ID`
+   - `GEMINI_API_KEY` (without VITE_ prefix)
+5. Click "Deploy"
+
+### Troubleshooting Deployment
+
+**White screen after deployment?**
+1. Open browser console (F12) to check for errors
+2. Verify all environment variables are set in Vercel dashboard
+3. Ensure Firebase variables have the `VITE_` prefix
+4. Redeploy after adding/updating environment variables
+
+**Firebase initialization errors?**
+1. Check that your Firebase project is active
+2. Verify Firestore database is created
+3. Ensure Firebase Authentication is enabled (Email/Password + Google)
+4. Apply the Firestore security rules shown above
 
 ---
 

@@ -30,14 +30,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [hasProfile, setHasProfile] = useState(false);
 
   useEffect(() => {
+    // If Firebase is not initialized, set loading to false immediately
+    if (!auth) {
+      console.warn('Firebase Auth is not initialized. Running in demo mode.');
+      setLoading(false);
+      return;
+    }
+
     const unsub = onAuthStateChanged(auth, async (u) => {
       setUser(u);
-      if (u) {
+      if (u && db) {
         try {
           const snap = await getDoc(doc(db, 'users', u.uid));
           setHasProfile(snap.exists() && !!snap.data()?.profile);
-        } catch {
+        } catch (error) {
           // Firestore unavailable or rules not set up — treat as no profile
+          console.warn('Firestore error:', error);
           setHasProfile(false);
         }
       } else {
@@ -49,19 +57,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string, name: string) => {
+    if (!auth) throw new Error('Firebase Auth is not initialized');
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(cred.user, { displayName: name });
   };
 
   const signIn = async (email: string, password: string) => {
+    if (!auth) throw new Error('Firebase Auth is not initialized');
     await signInWithEmailAndPassword(auth, email, password);
   };
 
   const signInWithGoogle = async () => {
+    if (!auth) throw new Error('Firebase Auth is not initialized');
     await signInWithPopup(auth, googleProvider);
   };
 
   const signOut = async () => {
+    if (!auth) throw new Error('Firebase Auth is not initialized');
     await firebaseSignOut(auth);
     localStorage.removeItem('pathher_profile');
     localStorage.removeItem('saved_recommendations');
