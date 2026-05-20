@@ -1,0 +1,30 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // User profiles — only the owning user can read or write their own document
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Mentor requests — authenticated users can create their own requests;
+    // only the request owner can read, update, or delete
+    match /mentorRequests/{requestId} {
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if request.auth != null
+                                  && resource.data.userId == request.auth.uid;
+    }
+
+    // Roles — authenticated users can create roles they own;
+    // any authenticated user can read active roles (talent discovery);
+    // only the poster can update or delete
+    match /roles/{roleId} {
+      allow create: if request.auth != null
+                    && request.resource.data.postedBy == request.auth.uid;
+      allow read: if request.auth != null;
+      allow update, delete: if request.auth != null
+                            && resource.data.postedBy == request.auth.uid;
+    }
+  }
+}
