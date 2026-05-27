@@ -7,6 +7,7 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged,
   updateProfile,
+  sendEmailVerification,
 } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../lib/firebase';
@@ -51,6 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = async (email: string, password: string, name: string) => {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(cred.user, { displayName: name });
+    await sendEmailVerification(cred.user);
   };
 
   const signIn = async (email: string, password: string) => {
@@ -63,10 +65,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await firebaseSignOut(auth);
-    localStorage.removeItem('pathher_profile');
-    localStorage.removeItem('saved_recommendations');
-    localStorage.removeItem('saved_opportunities');
-    localStorage.removeItem('joined_network');
+    const keys = [
+      'pathher_profile', 'saved_recommendations', 'saved_opportunities',
+      'joined_network', 'is_recruiter', 'read_notifications',
+      'connected_linkedin', 'profile_visible',
+    ];
+    keys.forEach(k => localStorage.removeItem(k));
   };
 
   return (

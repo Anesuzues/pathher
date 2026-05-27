@@ -90,7 +90,6 @@ export default function DashboardPage() {
         >
           Request Recruiter Access
         </button>
-        <p className="text-xs text-gray-400">For demo purposes, clicking above grants instant access.</p>
       </div>
     );
   }
@@ -232,7 +231,7 @@ export default function DashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 md:gap-6">
         <div className="space-y-1">
           <h1 className="text-2xl md:text-3xl font-bold">Recruiter Dashboard</h1>
-          <p className="text-gray-500 text-sm md:text-base">Welcome back, Nobztech Admin. Here's what's happening today.</p>
+          <p className="text-gray-500 text-sm md:text-base">Welcome back, {user?.displayName || user?.email?.split('@')[0] || 'Recruiter'}. Here's what's happening today.</p>
         </div>
         <div className="flex flex-wrap gap-3">
           <button

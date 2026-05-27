@@ -10,21 +10,21 @@ import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 
 const BASE_PARTNERS = [
-  { name: 'Standard Bank', logo: 'https://picsum.photos/seed/sb/100/100', industries: ['Finance', 'Tech'] },
-  { name: 'Discovery', logo: 'https://picsum.photos/seed/disc/100/100', industries: ['Healthcare', 'Data'] },
-  { name: 'Takealot', logo: 'https://picsum.photos/seed/tk/100/100', industries: ['E-commerce', 'Logistics'] },
-  { name: 'OfferZen', logo: 'https://picsum.photos/seed/oz/100/100', industries: ['Tech Recruitment'] },
-  { name: 'Entelect', logo: 'https://picsum.photos/seed/ent/100/100', industries: ['Software', 'Consulting'] },
-  { name: 'Absa', logo: 'https://picsum.photos/seed/absa/100/100', industries: ['Finance', 'Digital'] },
+  { name: 'Standard Bank', color: '#0033a0', industries: ['Finance', 'Tech'] },
+  { name: 'Discovery', color: '#e10f6a', industries: ['Healthcare', 'Data'] },
+  { name: 'Takealot', color: '#0077c8', industries: ['E-commerce', 'Logistics'] },
+  { name: 'OfferZen', color: '#ff5a36', industries: ['Tech Recruitment'] },
+  { name: 'Entelect', color: '#6d2077', industries: ['Software', 'Consulting'] },
+  { name: 'Absa', color: '#dc0a1e', industries: ['Finance', 'Digital'] },
 ];
 
 const EXTRA_PARTNERS = [
-  { name: 'Capitec Bank', logo: 'https://picsum.photos/seed/cap/100/100', industries: ['Finance', 'Fintech'] },
-  { name: 'Vodacom', logo: 'https://picsum.photos/seed/voda/100/100', industries: ['Telecoms', 'Tech'] },
-  { name: 'MTN', logo: 'https://picsum.photos/seed/mtn/100/100', industries: ['Telecoms', 'Digital'] },
-  { name: 'Old Mutual', logo: 'https://picsum.photos/seed/om/100/100', industries: ['Finance', 'Insurance'] },
-  { name: 'WeThinkCode_', logo: 'https://picsum.photos/seed/wtc/100/100', industries: ['Education', 'Tech'] },
-  { name: 'Amazon SA', logo: 'https://picsum.photos/seed/amz/100/100', industries: ['Tech', 'E-commerce'] },
+  { name: 'Capitec Bank', color: '#007a4d', industries: ['Finance', 'Fintech'] },
+  { name: 'Vodacom', color: '#e60000', industries: ['Telecoms', 'Tech'] },
+  { name: 'MTN', color: '#ffcb00', industries: ['Telecoms', 'Digital'] },
+  { name: 'Old Mutual', color: '#006341', industries: ['Finance', 'Insurance'] },
+  { name: 'WeThinkCode_', color: '#1a1a2e', industries: ['Education', 'Tech'] },
+  { name: 'Amazon SA', color: '#ff9900', industries: ['Tech', 'E-commerce'] },
 ];
 
 export default function EcosystemPage() {
@@ -248,8 +248,11 @@ export default function EcosystemPage() {
                 whileHover={{ y: -5 }}
                 className="bg-white p-6 rounded-3xl border border-purple-50 shadow-sm flex items-center gap-6 group cursor-pointer"
               >
-                <div className="w-16 h-16 rounded-2xl overflow-hidden border border-gray-100 shrink-0">
-                  <img src={partner.logo} alt={partner.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                <div
+                  className="w-16 h-16 rounded-2xl shrink-0 flex items-center justify-center text-white text-lg font-black"
+                  style={{ backgroundColor: partner.color }}
+                >
+                  {partner.name.split(' ').map(w => w[0]).slice(0, 2).join('')}
                 </div>
                 <div className="space-y-1">
                   <h3 className="font-bold text-lg group-hover:text-purple-600 transition-colors">{partner.name}</h3>
@@ -297,13 +300,15 @@ export default function EcosystemPage() {
           <h2 className="text-2xl font-bold">Community Activity</h2>
           <div className="space-y-6">
             {[
-              { user: 'Lerato M.', action: 'joined Standard Bank as Intern', time: '2h ago', img: 'https://picsum.photos/seed/l/50/50' },
-              { user: 'Sarah K.', action: 'completed UX Design Path', time: '5h ago', img: 'https://picsum.photos/seed/s/50/50' },
-              { user: 'Zanele T.', action: 'matched with 3 recruiters', time: '1d ago', img: 'https://picsum.photos/seed/z/50/50' },
-              { user: 'Thandi P.', action: 'updated her professional bio', time: '1d ago', img: 'https://picsum.photos/seed/t/50/50' },
+              { user: 'Lerato M.', action: 'joined Standard Bank as Intern', time: '2h ago' },
+              { user: 'Sarah K.', action: 'completed UX Design Path', time: '5h ago' },
+              { user: 'Zanele T.', action: 'matched with 3 recruiters', time: '1d ago' },
+              { user: 'Thandi P.', action: 'updated her professional bio', time: '1d ago' },
             ].map((activity, i) => (
               <div key={i} className="flex gap-4 items-start">
-                <img src={activity.img} alt={activity.user} className="w-10 h-10 rounded-full object-cover shrink-0" referrerPolicy="no-referrer" />
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-400 flex items-center justify-center text-white text-xs font-black shrink-0">
+                  {activity.user.split(' ').map(w => w[0]).join('')}
+                </div>
                 <div className="space-y-1">
                   <p className="text-sm">
                     <span className="font-bold text-gray-900">{activity.user}</span>

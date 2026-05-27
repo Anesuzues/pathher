@@ -3,10 +3,13 @@ import { useState, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Home, User, Briefcase, GraduationCap, LayoutDashboard,
-  Award, Menu, X, Bell, LogOut,
+  Award, Menu, X, Bell, LogOut, MailWarning,
 } from 'lucide-react';
+import { sendEmailVerification } from 'firebase/auth';
+import { auth } from './lib/firebase';
 import { cn } from './lib/utils';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Pages
 import LandingPage from './pages/LandingPage';
@@ -338,6 +341,44 @@ function Navigation({
   );
 }
 
+function EmailVerificationBanner() {
+  const { user } = useAuth();
+  const [dismissed, setDismissed] = useState(false);
+  const [resent, setResent] = useState(false);
+
+  if (!user || user.emailVerified || dismissed) return null;
+
+  const handleResend = async () => {
+    try {
+      await sendEmailVerification(auth.currentUser!);
+      setResent(true);
+      setTimeout(() => setResent(false), 4000);
+    } catch { /* rate-limited — ignore */ }
+  };
+
+  return (
+    <div className="flex items-center justify-between gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-2xl mb-6">
+      <div className="flex items-center gap-3 min-w-0">
+        <MailWarning size={18} className="text-amber-600 shrink-0" />
+        <p className="text-sm text-amber-800 font-medium truncate">
+          Please verify your email address to secure your account.
+        </p>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          onClick={handleResend}
+          className="text-xs font-bold text-amber-700 hover:underline"
+        >
+          {resent ? 'Sent!' : 'Resend'}
+        </button>
+        <button onClick={() => setDismissed(true)} className="text-amber-500 hover:text-amber-700 transition-colors">
+          <X size={16} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AppShell() {
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [isHovered, setIsHovered] = useState(false);
@@ -356,6 +397,7 @@ function AppShell() {
         sidebarExpanded ? 'md:ml-[280px]' : 'md:ml-[80px]'
       )}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+          <EmailVerificationBanner />
           <AnimatePresence mode="wait">
             <Routes>
               <Route path="/" element={<LandingPage />} />
@@ -378,10 +420,12 @@ function AppShell() {
 
 export default function App() {
   return (
-    <Router>
-      <AuthProvider>
-        <AppShell />
-      </AuthProvider>
-    </Router>
+    <ErrorBoundary>
+      <Router>
+        <AuthProvider>
+          <AppShell />
+        </AuthProvider>
+      </Router>
+    </ErrorBoundary>
   );
 }
