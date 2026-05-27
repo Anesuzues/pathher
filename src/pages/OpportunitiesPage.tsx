@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { useSearchParams } from 'react-router-dom';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 import { loadUserField, saveUserField } from '../lib/userdata';
 import { useAuth } from '../contexts/AuthContext';
+import { AiCourse } from '../lib/gemini';
 import {
   GraduationCap,
   ExternalLink,
@@ -22,45 +25,18 @@ import { cn } from '../lib/utils';
 
 const FILTER_TYPES = ['All', 'Bursary', 'Internship', 'Learnership', 'Graduate Program'] as const;
 
-const COURSES = [
-  {
-    title: 'Introduction to Web Development',
-    platform: 'Coursera',
-    duration: '4 weeks',
-    rating: '4.8',
-    image: 'https://picsum.photos/seed/coding/400/250',
-    url: 'https://www.coursera.org/learn/web-development',
-  },
-  {
-    title: 'Data Science Fundamentals',
-    platform: 'edX',
-    duration: '6 weeks',
-    rating: '4.9',
-    image: 'https://picsum.photos/seed/data/400/250',
-    url: 'https://www.edx.org/learn/data-science',
-  },
-  {
-    title: 'Google UX Design Certificate',
-    platform: 'Coursera',
-    duration: '7 months',
-    rating: '4.8',
-    image: 'https://picsum.photos/seed/ux/400/250',
-    url: 'https://grow.google/certificates/ux-design/',
-  },
-  {
-    title: 'Digital Marketing Essentials',
-    platform: 'HubSpot Academy',
-    duration: '3 weeks',
-    rating: '4.7',
-    image: 'https://picsum.photos/seed/marketing/400/250',
-    url: 'https://academy.hubspot.com',
-  },
+const FALLBACK_COURSES: AiCourse[] = [
+  { title: 'Introduction to Web Development', platform: 'Coursera', duration: '4 weeks', rating: '4.8', url: 'https://www.coursera.org/learn/web-development' },
+  { title: 'Data Science Fundamentals', platform: 'edX', duration: '6 weeks', rating: '4.9', url: 'https://www.edx.org/learn/data-science' },
+  { title: 'Google UX Design Certificate', platform: 'Coursera', duration: '7 months', rating: '4.8', url: 'https://grow.google/certificates/ux-design/' },
+  { title: 'Digital Marketing Essentials', platform: 'HubSpot Academy', duration: '3 weeks', rating: '4.7', url: 'https://academy.hubspot.com' },
 ];
 
 export default function OpportunitiesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<string>('All');
   const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const [courses, setCourses] = useState<AiCourse[]>(FALLBACK_COURSES);
   const [savedOpps, setSavedOpps] = useState<string[]>(() => {
     const raw = localStorage.getItem('saved_opportunities');
     return raw ? JSON.parse(raw) : [];
@@ -70,15 +46,20 @@ export default function OpportunitiesPage() {
   const pathParam = searchParams.get('path') || '';
   const pathLabel = CAREER_PATHS.find(p => p.id === pathParam)?.title || '';
 
-  // Load saved opportunities from Firestore on mount
   useEffect(() => {
     if (!user) return;
+    // Load saved opportunities
     loadUserField<string[]>(user.uid, 'savedOpportunities', []).then(fromFirestore => {
       if (fromFirestore.length > 0) {
         setSavedOpps(fromFirestore);
         localStorage.setItem('saved_opportunities', JSON.stringify(fromFirestore));
       }
     });
+    // Load AI-generated courses
+    getDoc(doc(db, 'users', user.uid)).then(snap => {
+      const aiCourses = snap.data()?.aiData?.courses;
+      if (Array.isArray(aiCourses) && aiCourses.length > 0) setCourses(aiCourses);
+    }).catch(() => {});
   }, [user]);
 
   const filteredOpportunities = OPPORTUNITIES.filter(opp => {
@@ -320,31 +301,28 @@ export default function OpportunitiesPage() {
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
-          {COURSES.map((course, i) => (
-            <div key={i} className="bg-white rounded-3xl overflow-hidden border border-purple-50 shadow-sm flex flex-col sm:flex-row hover:shadow-md transition-all">
-              <div className="sm:w-48 h-40 sm:h-auto shrink-0">
-                <img src={course.image} alt={course.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-              </div>
-              <div className="p-6 space-y-4 flex-1">
-                <div className="space-y-1">
-                  <h3 className="font-bold text-lg leading-tight">{course.title}</h3>
-                  <p className="text-sm text-gray-500">{course.platform}</p>
+          {courses.map((course, i) => (
+            <div key={i} className="bg-white rounded-3xl overflow-hidden border border-purple-50 shadow-sm hover:shadow-md transition-all">
+              <div className="p-6 space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <h3 className="font-bold text-lg leading-tight">{course.title}</h3>
+                    <p className="text-sm text-purple-600 font-medium">{course.platform}</p>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0 bg-yellow-50 px-2 py-1 rounded-lg">
+                    <Star size={12} className="text-yellow-500 fill-yellow-400" />
+                    <span className="text-xs font-bold text-yellow-700">{course.rating}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-4 text-xs text-gray-400">
-                  <div className="flex items-center gap-1">
-                    <Calendar size={14} />
-                    <span>{course.duration}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Star size={14} className="text-yellow-500 fill-yellow-400" />
-                    <span>{course.rating}</span>
-                  </div>
+                <div className="flex items-center gap-2 text-xs text-gray-400">
+                  <Calendar size={13} />
+                  <span>{course.duration}</span>
                 </div>
                 <a
                   href={course.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full py-2 bg-purple-50 text-purple-700 rounded-xl font-bold text-sm hover:bg-purple-100 transition-colors flex items-center justify-center gap-2"
+                  className="w-full py-2.5 bg-purple-50 text-purple-700 rounded-xl font-bold text-sm hover:bg-purple-100 transition-colors flex items-center justify-center gap-2"
                 >
                   <BookOpen size={16} />
                   Enroll Now

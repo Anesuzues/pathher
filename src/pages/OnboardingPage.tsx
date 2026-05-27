@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { generateUserContent } from '../lib/gemini';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 
@@ -91,6 +92,7 @@ const OPTIONS = {
 export default function OnboardingPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const { user, setHasProfile } = useAuth();
   const [data, setData] = useState<OnboardingData>({
@@ -152,9 +154,7 @@ export default function OnboardingPage() {
       setCurrentStep(currentStep + 1);
     } else {
       setIsSaving(true);
-      // Always save to localStorage
       localStorage.setItem('pathher_profile', JSON.stringify(data));
-      // Save to Firestore if logged in
       if (user) {
         try {
           await setDoc(doc(db, 'users', user.uid), { profile: data }, { merge: true });
@@ -164,6 +164,19 @@ export default function OnboardingPage() {
         }
       }
       setIsSaving(false);
+
+      // Generate AI content after saving profile
+      if (user) {
+        setIsGenerating(true);
+        try {
+          const aiData = await generateUserContent(data);
+          await setDoc(doc(db, 'users', user.uid), { aiData }, { merge: true });
+        } catch (e) {
+          console.error('AI generation failed — continuing without it:', e);
+        }
+        setIsGenerating(false);
+      }
+
       navigate('/recommendations');
     }
   };
@@ -194,6 +207,23 @@ export default function OnboardingPage() {
   };
 
   const progress = ((currentStep + 1) / STEPS.length) * 100;
+
+  if (isGenerating) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-6">
+        <div className="relative">
+          <div className="w-20 h-20 border-4 border-purple-100 border-t-purple-600 rounded-full animate-spin" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Sparkles className="text-purple-600 animate-pulse" size={24} />
+          </div>
+        </div>
+        <div className="text-center space-y-2">
+          <h2 className="text-2xl font-bold">Building Your AI Profile...</h2>
+          <p className="text-gray-500">Gemini is personalising your career recommendations, courses, and networking tips.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto space-y-8 py-4">
@@ -363,7 +393,7 @@ export default function OnboardingPage() {
           </button>
           <button
             onClick={handleNext}
-            disabled={!isStepValid() || isSaving}
+            disabled={!isStepValid() || isSaving || isGenerating}
             className={cn(
               "flex items-center gap-2 font-bold px-8 py-4 rounded-2xl transition-all shadow-lg",
               !isStepValid() || isSaving

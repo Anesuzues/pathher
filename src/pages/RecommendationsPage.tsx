@@ -10,29 +10,16 @@ import { db } from '../lib/firebase';
 import { loadUserField, saveUserField } from '../lib/userdata';
 import { useAuth } from '../contexts/AuthContext';
 import { CAREER_PATHS } from '../constants';
+import { AiData } from '../lib/gemini';
 import { CareerPath } from '../types';
 import { cn } from '../lib/utils';
 
 const iconMap: Record<string, any> = { Code, BarChart, Layout, Megaphone };
 
-const CAREER_KEYWORDS: Record<string, string[]> = {
-  'software-dev': ['Technology', 'Engineering', 'Problem Solving', 'Technical Skills', 'Analytical Thinking', 'Creativity', 'Innovation', 'Skill Mastery'],
-  'data-analyst': ['Technology', 'Science', 'Business', 'Finance', 'Analytical Thinking', 'Problem Solving', 'Organization', 'High Salary'],
-  'ux-designer': ['Technology', 'Arts & Design', 'Creativity', 'Empathy', 'Communication', 'Innovation', 'Helping Others'],
-  'digital-marketer': ['Marketing', 'Business', 'Communication', 'Creativity', 'Leadership', 'Social Work', 'Networking', 'Entrepreneurship'],
-};
-
-function scoreCareerPath(path: CareerPath, profile: { interests: string[]; strengths: string[]; goals: string[] }): number {
-  const keywords = CAREER_KEYWORDS[path.id] || [];
-  let score = 0;
-  profile.interests.forEach(i => { if (keywords.includes(i)) score += 3; });
-  profile.strengths.forEach(s => { if (keywords.includes(s)) score += 2; });
-  profile.goals.forEach(g => { if (keywords.includes(g)) score += 1; });
-  return score;
-}
-
 export default function RecommendationsPage() {
   const [recommendations, setRecommendations] = useState<CareerPath[]>([]);
+  const [aiWhyItFits, setAiWhyItFits] = useState<Record<string, string>>({});
+  const [aiEncouragement, setAiEncouragement] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [profileName, setProfileName] = useState('');
@@ -88,15 +75,58 @@ export default function RecommendationsPage() {
         if (raw) setSaved(JSON.parse(raw));
       }
 
+      // Load AI-generated data from Firestore
+      let aiData: AiData | null = null;
+      if (user) {
+        try {
+          const snap = await getDoc(doc(db, 'users', user.uid));
+          if (snap.exists() && snap.data()?.aiData) {
+            aiData = snap.data().aiData as AiData;
+          }
+        } catch { /* non-fatal */ }
+      }
+
       timer = setTimeout(() => {
-        const scored = CAREER_PATHS
-          .map(path => ({ path, score: scoreCareerPath(path, profile) }))
-          .sort((a, b) => b.score - a.score)
-          .slice(0, 3)
-          .map(x => x.path);
-        setRecommendations(scored);
+        if (aiData?.careerPaths?.length) {
+          // Use AI ranking and personalised whyItFits
+          const whyMap: Record<string, string> = {};
+          const encourageMap: Record<string, string> = {};
+          aiData.careerPaths.forEach(ap => {
+            whyMap[ap.id] = ap.whyItFits;
+            encourageMap[ap.id] = ap.encouragement;
+          });
+          setAiWhyItFits(whyMap);
+          setAiEncouragement(encourageMap);
+
+          const ranked = aiData.careerPaths
+            .slice(0, 3)
+            .map(ap => CAREER_PATHS.find(cp => cp.id === ap.id))
+            .filter(Boolean) as CareerPath[];
+          setRecommendations(ranked);
+        } else {
+          // Fallback: keyword scoring
+          const scored = CAREER_PATHS
+            .map(path => {
+              const keywords: Record<string, string[]> = {
+                'software-dev': ['Technology', 'Engineering', 'Problem Solving', 'Technical Skills', 'Analytical Thinking', 'Creativity', 'Innovation', 'Skill Mastery'],
+                'data-analyst': ['Technology', 'Science', 'Business', 'Finance', 'Analytical Thinking', 'Problem Solving', 'Organization', 'High Salary'],
+                'ux-designer': ['Technology', 'Arts & Design', 'Creativity', 'Empathy', 'Communication', 'Innovation', 'Helping Others'],
+                'digital-marketer': ['Marketing', 'Business', 'Communication', 'Creativity', 'Leadership', 'Social Work', 'Networking', 'Entrepreneurship'],
+              };
+              const kw = keywords[path.id] || [];
+              let score = 0;
+              (profile.interests || []).forEach((i: string) => { if (kw.includes(i)) score += 3; });
+              (profile.strengths || []).forEach((s: string) => { if (kw.includes(s)) score += 2; });
+              (profile.goals || []).forEach((g: string) => { if (kw.includes(g)) score += 1; });
+              return { path, score };
+            })
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 3)
+            .map(x => x.path);
+          setRecommendations(scored);
+        }
         setIsLoading(false);
-      }, 1500);
+      }, 1200);
     };
 
     load();
@@ -206,7 +236,14 @@ export default function RecommendationsPage() {
                         <CheckCircle2 size={18} className="text-green-500" />
                         Why it fits you
                       </h3>
-                      <p className="text-gray-600 leading-relaxed">{path.whyItFits}</p>
+                      <p className="text-gray-600 leading-relaxed">
+                        {aiWhyItFits[path.id] || path.whyItFits}
+                      </p>
+                      {aiEncouragement[path.id] && (
+                        <p className="text-sm text-purple-600 font-medium italic mt-1">
+                          ✦ {aiEncouragement[path.id]}
+                        </p>
+                      )}
                     </div>
 
                     <div className="grid sm:grid-cols-2 gap-6">

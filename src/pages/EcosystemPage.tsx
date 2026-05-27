@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Users, Briefcase, Star, MessageSquare,
-  CheckCircle, Building2, TrendingUp, X, Send,
+  CheckCircle, Building2, TrendingUp, X, Send, Sparkles,
 } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 import { loadUserField, saveUserField, saveMentorRequest } from '../lib/userdata';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
@@ -35,9 +37,10 @@ export default function EcosystemPage() {
   const [mentorMessage, setMentorMessage] = useState('');
   const [mentorSent, setMentorSent] = useState(false);
   const [isSendingMentor, setIsSendingMentor] = useState(false);
+  const [networkingTip, setNetworkingTip] = useState('');
+  const [careerInsight, setCareerInsight] = useState('');
   const { user } = useAuth();
 
-  // Sync join status from Firestore on mount
   useEffect(() => {
     if (!user) return;
     loadUserField<boolean>(user.uid, 'joinedNetwork', false).then(joined => {
@@ -46,6 +49,12 @@ export default function EcosystemPage() {
         localStorage.setItem('joined_network', 'true');
       }
     });
+    // Load AI-generated tips
+    getDoc(doc(db, 'users', user.uid)).then(snap => {
+      const aiData = snap.data()?.aiData;
+      if (aiData?.networkingTip) setNetworkingTip(aiData.networkingTip);
+      if (aiData?.careerInsight) setCareerInsight(aiData.careerInsight);
+    }).catch(() => {});
   }, [user]);
 
   const handleJoin = () => {
@@ -319,6 +328,22 @@ export default function EcosystemPage() {
               </div>
             ))}
           </div>
+
+          {(networkingTip || careerInsight) && (
+            <div className="p-6 bg-purple-50 rounded-[2rem] border border-purple-100 space-y-4">
+              <div className="flex items-center gap-2 text-purple-700">
+                <Sparkles size={18} />
+                <span className="text-xs font-bold uppercase tracking-wider">Your AI Insight</span>
+              </div>
+              {careerInsight && <p className="text-sm text-purple-900 font-medium leading-relaxed">"{careerInsight}"</p>}
+              {networkingTip && (
+                <div className="pt-2 border-t border-purple-200">
+                  <p className="text-xs font-bold text-purple-600 uppercase tracking-wider mb-1">Networking Tip</p>
+                  <p className="text-sm text-purple-800 leading-relaxed">{networkingTip}</p>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="p-8 bg-pink-50 rounded-[2.5rem] border border-pink-100 space-y-6">
             <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-pink-600 shadow-sm">
