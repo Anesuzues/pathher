@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm uninstall *)",
+      "Bash(npm audit *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
+      "Bash(node -e ' *)",
+      "Bash(git commit -m ' *)",
+      "Bash(grep -n \"^const \\\\|^  {$\\\\|title:\\\\|deadline:\\\\|company:\\\\|mentor:\" src/pages/OpportunitiesPage.tsx)",
+      "Bash(git remote *)",
+      "Bash(git pull *)",
+      "Bash(git checkout *)"
+    ]
+  }
+}
