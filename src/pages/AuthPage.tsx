@@ -15,7 +15,13 @@ const FIREBASE_ERRORS: Record<string, string> = {
   'auth/wrong-password': 'Incorrect password. Please try again.',
   'auth/invalid-credential': 'Incorrect email or password.',
   'auth/popup-closed-by-user': 'Google sign-in was cancelled.',
+  'auth/popup-blocked': 'Popup was blocked by your browser. Please allow popups for this site.',
   'auth/too-many-requests': 'Too many attempts. Please try again later.',
+  'auth/unauthorized-domain': 'This domain is not authorised for Google sign-in. Add it in Firebase Console → Authentication → Settings → Authorised domains.',
+  'auth/operation-not-allowed': 'Google sign-in is not enabled. Enable it in Firebase Console → Authentication → Sign-in method.',
+  'auth/cancelled-popup-request': 'Google sign-in was cancelled.',
+  'auth/network-request-failed': 'Network error. Check your connection and try again.',
+  'auth/internal-error': 'An internal error occurred. Check the browser console for details.',
 };
 
 function GoogleIcon() {
@@ -71,7 +77,8 @@ export default function AuthPage() {
       await signInWithGoogle();
       navigate(from || '/recommendations');
     } catch (err: any) {
-      setError(FIREBASE_ERRORS[err.code] || 'Google sign-in failed. Please try again.');
+      console.error('Google sign-in error:', err.code, err.message);
+      setError(FIREBASE_ERRORS[err.code] || `Google sign-in failed (${err.code || 'unknown'}). Check the browser console for details.`);
     } finally {
       setIsGoogleLoading(false);
     }

@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { GoogleGenAI } from '@google/genai';
+import Groq from 'groq-sdk';
 
 type Req = IncomingMessage & { body: Record<string, unknown> };
 type Res = ServerResponse & { status: (c: number) => Res; json: (body: unknown) => void };
@@ -21,22 +21,21 @@ export default async function handler(req: Req, res: Res) {
     return res.status(400).json({ error: 'Prompt too long' });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
-    console.error('GEMINI_API_KEY is not set');
     return res.status(500).json({ error: 'Server configuration error' });
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: prompt,
+    const groq = new Groq({ apiKey });
+    const completion = await groq.chat.completions.create({
+      model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.7,
     });
-
-    return res.status(200).json({ text: response.text });
+    return res.status(200).json({ text: completion.choices[0]?.message?.content || '' });
   } catch (error: unknown) {
-    console.error('Gemini API error:', error);
+    console.error('Groq API error:', error);
     return res.status(502).json({ error: 'AI generation failed' });
   }
 }
