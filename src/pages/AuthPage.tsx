@@ -355,8 +355,8 @@ export default function AuthPage() {
 
         <p className="text-center text-xs text-gray-400 font-medium">
           By continuing you agree to our{' '}
-          <a href="#" className="text-purple-600 hover:underline">Terms</a> and{' '}
-          <a href="#" className="text-purple-600 hover:underline">Privacy Policy</a>.
+          <a href="/terms" className="text-purple-600 hover:underline">Terms</a> and{' '}
+          <a href="/privacy" className="text-purple-600 hover:underline">Privacy Policy</a>.
         </p>
       </div>
     </div>

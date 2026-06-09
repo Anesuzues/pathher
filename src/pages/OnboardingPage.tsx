@@ -15,7 +15,7 @@ import {
   GraduationCap,
   RefreshCw,
 } from 'lucide-react';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { generateUserContent } from '../lib/gemini';
 import { useAuth } from '../contexts/AuthContext';
@@ -165,16 +165,24 @@ export default function OnboardingPage() {
       }
       setIsSaving(false);
 
-      // Generate AI content after saving profile
+      // Generate AI content only if it doesn't exist yet
       if (user) {
-        setIsGenerating(true);
         try {
-          const aiData = await generateUserContent(data);
-          await setDoc(doc(db, 'users', user.uid), { aiData }, { merge: true });
+          const snap = await getDoc(doc(db, 'users', user.uid));
+          const hasAiData = snap.exists() && (snap.data()?.aiData?.careerPaths?.length ?? 0) > 0;
+          if (!hasAiData) {
+            setIsGenerating(true);
+            try {
+              const aiData = await generateUserContent(data);
+              await setDoc(doc(db, 'users', user.uid), { aiData }, { merge: true });
+            } catch (e) {
+              console.error('AI generation failed — continuing without it:', e);
+            }
+            setIsGenerating(false);
+          }
         } catch (e) {
-          console.error('AI generation failed — continuing without it:', e);
+          console.error('Failed to check existing AI data:', e);
         }
-        setIsGenerating(false);
       }
 
       navigate('/recommendations');
@@ -219,7 +227,7 @@ export default function OnboardingPage() {
         </div>
         <div className="text-center space-y-2">
           <h2 className="text-2xl font-bold">Building Your AI Profile...</h2>
-          <p className="text-gray-500">Gemini is personalising your career recommendations, courses, and networking tips.</p>
+          <p className="text-gray-500">PathHer AI is personalising your career recommendations, courses, and networking tips.</p>
         </div>
       </div>
     );

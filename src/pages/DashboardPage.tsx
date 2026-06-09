@@ -8,7 +8,8 @@ import {
   Users, TrendingUp, UserCheck, Clock, Search, Download, MoreHorizontal,
   ArrowUpRight, ArrowDownRight, X, Plus, ChevronDown, Briefcase, XCircle, LayoutDashboard,
 } from 'lucide-react';
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp, doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 import { saveRole, loadUserRoles, closeRole, PostedRole } from '../lib/userdata';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
@@ -32,14 +33,25 @@ const pieData = [
 const COLORS = ['#9333ea', '#ec4899', '#6366f1', '#f43f5e'];
 
 const ALL_CANDIDATES = [
-  { name: 'Nompumelelo D.', path: 'Software Developer', readiness: '95%', status: 'Available', img: 'https://picsum.photos/seed/n/40/40' },
-  { name: 'Lerato M.', path: 'Data Analyst', readiness: '88%', status: 'Interviewing', img: 'https://picsum.photos/seed/l/40/40' },
-  { name: 'Sarah K.', path: 'UX Designer', readiness: '92%', status: 'Available', img: 'https://picsum.photos/seed/s/40/40' },
-  { name: 'Zanele T.', path: 'Digital Marketing', readiness: '84%', status: 'Hired', img: 'https://picsum.photos/seed/z/40/40' },
-  { name: 'Thandi P.', path: 'Software Developer', readiness: '78%', status: 'Available', img: 'https://picsum.photos/seed/tp/40/40' },
-  { name: 'Nomsa B.', path: 'Data Analyst', readiness: '91%', status: 'Interviewing', img: 'https://picsum.photos/seed/nb/40/40' },
-  { name: 'Palesa M.', path: 'UX Designer', readiness: '87%', status: 'Available', img: 'https://picsum.photos/seed/pm/40/40' },
-  { name: 'Aisha K.', path: 'Digital Marketing', readiness: '93%', status: 'Hired', img: 'https://picsum.photos/seed/ak/40/40' },
+  { name: 'Nompumelelo D.', path: 'Software Developer', readiness: '95%', status: 'Available' },
+  { name: 'Lerato M.', path: 'Data Analyst', readiness: '88%', status: 'Interviewing' },
+  { name: 'Sarah K.', path: 'UX Designer', readiness: '92%', status: 'Available' },
+  { name: 'Zanele T.', path: 'Digital Marketing', readiness: '84%', status: 'Hired' },
+  { name: 'Thandi P.', path: 'Software Developer', readiness: '78%', status: 'Available' },
+  { name: 'Nomsa B.', path: 'Data Analyst', readiness: '91%', status: 'Interviewing' },
+  { name: 'Palesa M.', path: 'UX Designer', readiness: '87%', status: 'Available' },
+  { name: 'Aisha K.', path: 'Digital Marketing', readiness: '93%', status: 'Hired' },
+];
+
+const CANDIDATE_COLORS = [
+  'from-purple-500 to-pink-400',
+  'from-blue-500 to-cyan-400',
+  'from-green-500 to-teal-400',
+  'from-orange-500 to-amber-400',
+  'from-indigo-500 to-purple-400',
+  'from-rose-500 to-pink-400',
+  'from-teal-500 to-green-400',
+  'from-violet-500 to-indigo-400',
 ];
 
 export default function DashboardPage() {
@@ -51,9 +63,7 @@ export default function DashboardPage() {
   const [jobPosted, setJobPosted] = useState(false);
   const [postedRoles, setPostedRoles] = useState<PostedRole[]>([]);
   const [isPostingRole, setIsPostingRole] = useState(false);
-  const [isRecruiter, setIsRecruiter] = useState(
-    () => localStorage.getItem('is_recruiter') === 'true'
-  );
+  const [isRecruiter, setIsRecruiter] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -61,6 +71,9 @@ export default function DashboardPage() {
     loadUserRoles(user.uid).then(roles => {
       setPostedRoles(roles.sort((a, b) => b.createdAt.seconds - a.createdAt.seconds));
     });
+    getDoc(doc(db, 'users', user.uid)).then(snap => {
+      if (snap.exists() && snap.data()?.isRecruiter === true) setIsRecruiter(true);
+    }).catch(() => { /* non-fatal */ });
   }, [user]);
 
   const visibleCandidates = showAll ? ALL_CANDIDATES : ALL_CANDIDATES.slice(0, 4);
@@ -82,9 +95,14 @@ export default function DashboardPage() {
           </p>
         </div>
         <button
-          onClick={() => {
-            localStorage.setItem('is_recruiter', 'true');
+          type="button"
+          onClick={async () => {
             setIsRecruiter(true);
+            if (user) {
+              try {
+                await setDoc(doc(db, 'users', user.uid), { isRecruiter: true }, { merge: true });
+              } catch { /* non-fatal */ }
+            }
           }}
           className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-2xl font-bold hover:shadow-lg hover:shadow-purple-200 transition-all"
         >
@@ -167,7 +185,7 @@ export default function DashboardPage() {
               exit={{ scale: 0.95, opacity: 0 }}
               className="bg-white rounded-[2.5rem] p-10 w-full max-w-lg space-y-8 relative"
             >
-              <button onClick={() => setShowPostModal(false)} className="absolute top-6 right-6 p-2 text-gray-400 hover:text-gray-600">
+              <button type="button" title="Close" onClick={() => setShowPostModal(false)} className="absolute top-6 right-6 p-2 text-gray-400 hover:text-gray-600">
                 <X size={22} />
               </button>
               {!jobPosted ? (
@@ -191,6 +209,7 @@ export default function DashboardPage() {
                       <label className="text-sm font-bold text-gray-700">Job Type</label>
                       <div className="relative">
                         <select
+                          title="Job type"
                           value={jobType}
                           onChange={e => setJobType(e.target.value)}
                           className="w-full px-4 py-3 bg-gray-50 border-2 border-transparent focus:border-purple-500 focus:bg-white rounded-2xl outline-none font-medium text-sm appearance-none cursor-pointer"
@@ -285,7 +304,7 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border border-purple-50 shadow-sm space-y-6 md:space-y-8">
           <div className="flex items-center justify-between">
             <h2 className="text-lg md:text-xl font-bold">Talent Growth</h2>
-            <select className="bg-purple-50 border-none rounded-lg text-xs font-bold text-purple-700 px-3 py-1 focus:ring-0">
+            <select title="Time period" className="bg-purple-50 border-none rounded-lg text-xs font-bold text-purple-700 px-3 py-1 focus:ring-0">
               <option>Last 6 Months</option>
               <option>Last Year</option>
             </select>
@@ -388,7 +407,7 @@ export default function DashboardPage() {
               className="pl-10 pr-4 py-2 bg-purple-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-purple-500 w-full sm:w-64 outline-none"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+              <button type="button" title="Clear search" onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
                 <X size={14} />
               </button>
             )}
@@ -402,7 +421,7 @@ export default function DashboardPage() {
                 <th className="px-8 py-4">Recommended Path</th>
                 <th className="px-8 py-4">Readiness</th>
                 <th className="px-8 py-4">Status</th>
-                <th className="px-8 py-4"></th>
+                <th className="px-8 py-4"><span className="sr-only">Actions</span></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-purple-50">
@@ -410,7 +429,9 @@ export default function DashboardPage() {
                 <tr key={i} className="hover:bg-purple-50/30 transition-colors group">
                   <td className="px-8 py-4">
                     <div className="flex items-center gap-3">
-                      <img src={talent.img} alt={talent.name} className="w-10 h-10 rounded-full object-cover" referrerPolicy="no-referrer" />
+                      <div className={cn('w-10 h-10 rounded-full bg-gradient-to-br flex items-center justify-center text-white text-xs font-black shrink-0', CANDIDATE_COLORS[i % CANDIDATE_COLORS.length])}>
+                        {talent.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                      </div>
                       <span className="font-bold text-gray-900">{talent.name}</span>
                     </div>
                   </td>
@@ -434,7 +455,7 @@ export default function DashboardPage() {
                     </span>
                   </td>
                   <td className="px-8 py-4 text-right">
-                    <button className="p-2 text-gray-400 hover:text-purple-600 transition-colors">
+                    <button type="button" title="More options" className="p-2 text-gray-400 hover:text-purple-600 transition-colors">
                       <MoreHorizontal size={20} />
                     </button>
                   </td>

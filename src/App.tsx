@@ -22,6 +22,7 @@ import EcosystemPage from './pages/EcosystemPage';
 import DashboardPage from './pages/DashboardPage';
 import ProfilePage from './pages/ProfilePage';
 import NotFoundPage from './pages/NotFoundPage';
+import LegalPage from './pages/LegalPage';
 
 function PrivateRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -115,6 +116,8 @@ function Navigation({
             </Link>
           )}
           <button
+            type="button"
+            title="Toggle sidebar"
             onClick={toggleSidebar}
             className={cn('p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors', !sidebarExpanded && 'hidden')}
           >
@@ -195,7 +198,7 @@ function Navigation({
       {/* Mobile Header */}
       <header className="md:hidden fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-md border-b border-purple-100 z-50 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button onClick={toggleMobileMenu} className="p-2 text-gray-500 hover:bg-purple-50 rounded-lg">
+          <button type="button" title="Open menu" onClick={toggleMobileMenu} className="p-2 text-gray-500 hover:bg-purple-50 rounded-lg">
             <Menu size={24} />
           </button>
           <Link to="/" className="flex items-center gap-2">
@@ -228,7 +231,7 @@ function Navigation({
                   <h2 className="font-bold text-lg">Notifications</h2>
                   <p className="text-xs text-gray-400">{unreadCount} unread</p>
                 </div>
-                <button onClick={() => setIsNotificationsOpen(false)} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors">
+                <button type="button" title="Close notifications" onClick={() => setIsNotificationsOpen(false)} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors">
                   <X size={20} />
                 </button>
               </div>
@@ -280,7 +283,7 @@ function Navigation({
                   <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-pink-500 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-purple-100">P</div>
                   <span className="font-black text-xl bg-gradient-to-r from-purple-700 to-pink-600 bg-clip-text text-transparent">PathHer</span>
                 </Link>
-                <button onClick={toggleMobileMenu} className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors">
+                <button type="button" title="Close menu" onClick={toggleMobileMenu} className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors">
                   <X size={24} />
                 </button>
               </div>
@@ -371,7 +374,7 @@ function EmailVerificationBanner() {
         >
           {resent ? 'Sent!' : 'Resend'}
         </button>
-        <button onClick={() => setDismissed(true)} className="text-amber-500 hover:text-amber-700 transition-colors">
+        <button type="button" title="Dismiss" onClick={() => setDismissed(true)} className="text-amber-500 hover:text-amber-700 transition-colors">
           <X size={16} />
         </button>
       </div>
@@ -409,6 +412,8 @@ function AppShell() {
               <Route path="/ecosystem" element={<PrivateRoute><EcosystemPage /></PrivateRoute>} />
               <Route path="/dashboard" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
               <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
+              <Route path="/terms" element={<LegalPage />} />
+              <Route path="/privacy" element={<LegalPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </AnimatePresence>

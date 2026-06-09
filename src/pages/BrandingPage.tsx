@@ -73,6 +73,7 @@ export default function BrandingPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeTab, setActiveTab] = useState<'cv' | 'linkedin'>('cv');
   const [copied, setCopied] = useState(false);
+  const [validationError, setValidationError] = useState('');
   const [variation, setVariation] = useState(0);
   const [profile, setProfile] = useState<any>(null);
   const [primaryPath, setPrimaryPath] = useState(CAREER_PATHS[0]);
@@ -106,6 +107,11 @@ export default function BrandingPage() {
   }, []);
 
   const handleGenerate = () => {
+    if (!profile?.fullName || profile.fullName.trim().length < 2) {
+      setValidationError('Please complete your profile (at least name and interests) before generating branding materials.');
+      return;
+    }
+    setValidationError('');
     setIsGenerating(true);
     const next = variation + 1;
     setTimeout(() => {
@@ -215,6 +221,9 @@ export default function BrandingPage() {
               </div>
             </div>
 
+            {validationError && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">{validationError}</p>
+            )}
             <button
               onClick={handleGenerate}
               disabled={isGenerating}
