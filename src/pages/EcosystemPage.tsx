@@ -4,8 +4,7 @@ import {
   Users, Briefcase, Star, MessageSquare,
   CheckCircle, Building2, TrendingUp, X, Send, Sparkles,
 } from 'lucide-react';
-import { Timestamp } from 'firebase/firestore';
-import { doc, getDoc } from 'firebase/firestore';
+import { Timestamp, doc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { loadUserField, saveUserField, saveMentorRequest } from '../lib/userdata';
 import { useAuth } from '../contexts/AuthContext';

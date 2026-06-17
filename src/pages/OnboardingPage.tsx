@@ -107,33 +107,49 @@ export default function OnboardingPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    setData(d => {
-      let next = { ...d };
-      try {
-        const raw = localStorage.getItem('pathher_profile');
-        if (raw) {
-          const saved = JSON.parse(raw);
-          if (saved.fullName) setIsEditing(true);
-          next = {
-            fullName: saved.fullName || next.fullName,
-            email: saved.email || next.email,
-            education: saved.education || next.education,
-            interests: saved.interests?.length > 0 ? saved.interests : next.interests,
-            strengths: saved.strengths?.length > 0 ? saved.strengths : next.strengths,
-            goals: saved.goals?.length > 0 ? saved.goals : next.goals,
-            workStyle: saved.workStyle?.length > 0 ? saved.workStyle : next.workStyle,
+    const load = async () => {
+      let saved: any = null;
+
+      // Firestore first — source of truth across devices
+      if (user) {
+        try {
+          const snap = await getDoc(doc(db, 'users', user.uid));
+          if (snap.exists() && snap.data()?.profile) {
+            saved = snap.data().profile;
+            localStorage.setItem('pathher_profile', JSON.stringify(saved));
+          }
+        } catch { /* fall through */ }
+      }
+
+      // Fallback to localStorage
+      if (!saved) {
+        try {
+          const raw = localStorage.getItem('pathher_profile');
+          if (raw) saved = JSON.parse(raw);
+        } catch { /* ignore */ }
+      }
+
+      setData(d => {
+        if (saved?.fullName) {
+          setIsEditing(true);
+          return {
+            fullName: saved.fullName || user?.displayName || '',
+            email: saved.email || user?.email || '',
+            education: saved.education || '',
+            interests: saved.interests?.length > 0 ? saved.interests : [],
+            strengths: saved.strengths?.length > 0 ? saved.strengths : [],
+            goals: saved.goals?.length > 0 ? saved.goals : [],
+            workStyle: saved.workStyle?.length > 0 ? saved.workStyle : [],
           };
         }
-      } catch { /* ignore parse errors */ }
-      if (user) {
-        next = {
-          ...next,
-          fullName: next.fullName || user.displayName || '',
-          email: next.email || user.email || '',
+        return {
+          ...d,
+          fullName: d.fullName || user?.displayName || '',
+          email: d.email || user?.email || '',
         };
-      }
-      return next;
-    });
+      });
+    };
+    load();
   }, [user]);
 
   const step = STEPS[currentStep];
@@ -165,24 +181,16 @@ export default function OnboardingPage() {
       }
       setIsSaving(false);
 
-      // Generate AI content only if it doesn't exist yet
+      // Always regenerate AI content — refreshes recommendations when profile is updated
       if (user) {
+        setIsGenerating(true);
         try {
-          const snap = await getDoc(doc(db, 'users', user.uid));
-          const hasAiData = snap.exists() && (snap.data()?.aiData?.careerPaths?.length ?? 0) > 0;
-          if (!hasAiData) {
-            setIsGenerating(true);
-            try {
-              const aiData = await generateUserContent(data);
-              await setDoc(doc(db, 'users', user.uid), { aiData }, { merge: true });
-            } catch (e) {
-              console.error('AI generation failed — continuing without it:', e);
-            }
-            setIsGenerating(false);
-          }
+          const aiData = await generateUserContent(data);
+          await setDoc(doc(db, 'users', user.uid), { aiData }, { merge: true });
         } catch (e) {
-          console.error('Failed to check existing AI data:', e);
+          console.error('AI generation failed — continuing without it:', e);
         }
+        setIsGenerating(false);
       }
 
       navigate('/recommendations');

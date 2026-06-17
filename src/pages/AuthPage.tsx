@@ -75,6 +75,7 @@ export default function AuthPage() {
     setIsGoogleLoading(true);
     try {
       await signInWithGoogle();
+      // RecommendationsPage redirects to /onboarding if no profile exists
       navigate(from || '/recommendations');
     } catch (err: any) {
       console.error('Google sign-in error:', err.code, err.message);
