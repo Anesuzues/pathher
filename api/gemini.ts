@@ -59,15 +59,39 @@ Rules:
 - South African context throughout`;
 }
 
+async function verifyFirebaseToken(idToken: string): Promise<boolean> {
+  try {
+    const firebaseApiKey = process.env.VITE_FIREBASE_API_KEY;
+    if (!firebaseApiKey) return false;
+    const r = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${firebaseApiKey}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken }) }
+    );
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
 export default async function handler(req: Req, res: Res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const authHeader = req.headers['authorization'] as string | undefined;
+  const idToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!idToken || !(await verifyFirebaseToken(idToken))) {
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
   const { profile } = req.body as { profile?: Profile };
 
   if (!profile || typeof profile !== 'object') {
     return res.status(400).json({ error: 'Missing profile' });
+  }
+
+  if (profile.fullName && typeof profile.fullName === 'string') {
+    profile.fullName = profile.fullName.slice(0, 100).trim();
   }
 
   const apiKey = process.env.GROQ_API_KEY;

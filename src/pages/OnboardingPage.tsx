@@ -185,7 +185,8 @@ export default function OnboardingPage() {
       if (user) {
         setIsGenerating(true);
         try {
-          const aiData = await generateUserContent(data);
+          const idToken = await user.getIdToken();
+          const aiData = await generateUserContent(data, idToken);
           await setDoc(doc(db, 'users', user.uid), { aiData }, { merge: true });
         } catch (e) {
           console.error('AI generation failed — continuing without it:', e);

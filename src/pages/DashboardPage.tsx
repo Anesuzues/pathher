@@ -64,6 +64,7 @@ export default function DashboardPage() {
   const [postedRoles, setPostedRoles] = useState<PostedRole[]>([]);
   const [isPostingRole, setIsPostingRole] = useState(false);
   const [isRecruiter, setIsRecruiter] = useState(false);
+  const [recruiterRequested, setRecruiterRequested] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -72,7 +73,10 @@ export default function DashboardPage() {
       setPostedRoles(roles.sort((a, b) => b.createdAt.seconds - a.createdAt.seconds));
     });
     getDoc(doc(db, 'users', user.uid)).then(snap => {
-      if (snap.exists() && snap.data()?.isRecruiter === true) setIsRecruiter(true);
+      if (snap.exists()) {
+        if (snap.data()?.isRecruiter === true) setIsRecruiter(true);
+        if (snap.data()?.recruiterRequested === true) setRecruiterRequested(true);
+      }
     }).catch(() => { /* non-fatal */ });
   }, [user]);
 
@@ -94,20 +98,26 @@ export default function DashboardPage() {
             The talent dashboard is available to verified employers and hiring partners. Request access to unlock candidate analytics and role posting.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={async () => {
-            setIsRecruiter(true);
-            if (user) {
-              try {
-                await setDoc(doc(db, 'users', user.uid), { isRecruiter: true }, { merge: true });
-              } catch { /* non-fatal */ }
-            }
-          }}
-          className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-2xl font-bold hover:shadow-lg hover:shadow-purple-200 transition-all"
-        >
-          Request Recruiter Access
-        </button>
+        {recruiterRequested ? (
+          <div className="px-8 py-4 bg-green-50 border border-green-200 text-green-700 rounded-2xl font-bold text-sm text-center max-w-xs">
+            Request received — our team will review your application and get back to you within 2 business days.
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={async () => {
+              setRecruiterRequested(true);
+              if (user) {
+                try {
+                  await setDoc(doc(db, 'users', user.uid), { recruiterRequested: true }, { merge: true });
+                } catch { /* non-fatal */ }
+              }
+            }}
+            className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-2xl font-bold hover:shadow-lg hover:shadow-purple-200 transition-all"
+          >
+            Request Recruiter Access
+          </button>
+        )}
       </div>
     );
   }

@@ -33,10 +33,13 @@ interface Profile {
   workStyle: string[];
 }
 
-export async function generateUserContent(profile: Profile): Promise<AiData> {
+export async function generateUserContent(profile: Profile, idToken?: string): Promise<AiData> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
+
   const response = await fetch('/api/gemini', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({ profile }),
   });
 

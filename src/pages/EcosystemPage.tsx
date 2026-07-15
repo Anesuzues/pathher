@@ -170,7 +170,7 @@ export default function EcosystemPage() {
       <section className="bg-gradient-to-br from-purple-600 to-pink-500 rounded-[2rem] md:rounded-[3rem] p-6 md:p-12 lg:p-16 text-white relative overflow-hidden">
         <div className="relative z-10 grid md:grid-cols-2 gap-8 md:gap-12 items-center">
           <div className="space-y-5 md:space-y-6">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold leading-tight">Join the Nobztech Talent Network</h1>
+            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold leading-tight">Join the PathHer Talent Network</h1>
             <p className="text-purple-100 text-sm md:text-lg opacity-90">
               Connect with top South African employers looking for young female talent. Show your readiness and get matched with your dream role.
             </p>

@@ -4,6 +4,9 @@ import {
   FileText, Linkedin, Download, Copy, RefreshCw, Check, Sparkles, Edit3
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 import { CAREER_PATHS } from '../constants';
 
@@ -70,6 +73,7 @@ function calcProfileCompletion(profile: any): number {
 
 export default function BrandingPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeTab, setActiveTab] = useState<'cv' | 'linkedin'>('cv');
   const [copied, setCopied] = useState(false);
@@ -80,31 +84,46 @@ export default function BrandingPage() {
   const [cvContent, setCvContent] = useState('');
   const [linkedinBio, setLinkedinBio] = useState('');
   const [completion, setCompletion] = useState(0);
-  const [linkedInConnected, setLinkedInConnected] = useState(
-    () => localStorage.getItem('connected_linkedin') === 'true'
-  );
-  const [profileVisible, setProfileVisible] = useState(
-    () => localStorage.getItem('profile_visible') !== 'false'
-  );
+  const [profileVisible, setProfileVisible] = useState(true);
 
   useEffect(() => {
-    const raw = localStorage.getItem('pathher_profile');
-    const savedRaw = localStorage.getItem('saved_recommendations');
+    const load = async () => {
+      let prof: any = null;
+      let savedIds: string[] = [];
 
-    const prof = raw ? JSON.parse(raw) : {
-      fullName: '', email: '', education: '',
-      interests: [], strengths: [], goals: [], workStyle: [],
+      if (user) {
+        try {
+          const snap = await getDoc(doc(db, 'users', user.uid));
+          if (snap.exists()) {
+            const data = snap.data();
+            if (data?.profile) prof = data.profile;
+            if (data?.savedRecommendations) savedIds = data.savedRecommendations;
+            if (typeof data?.profileVisible === 'boolean') setProfileVisible(data.profileVisible);
+          }
+        } catch { /* fallback to localStorage */ }
+      }
+
+      if (!prof) {
+        const raw = localStorage.getItem('pathher_profile');
+        prof = raw ? JSON.parse(raw) : {
+          fullName: '', email: '', education: '',
+          interests: [], strengths: [], goals: [], workStyle: [],
+        };
+      }
+      if (!savedIds.length) {
+        const savedRaw = localStorage.getItem('saved_recommendations');
+        savedIds = savedRaw ? JSON.parse(savedRaw) : [];
+      }
+
+      const path = CAREER_PATHS.find(p => p.id === savedIds[0]) || CAREER_PATHS[0];
+      setProfile(prof);
+      setPrimaryPath(path);
+      setCvContent(generateCV(prof, path, 0));
+      setLinkedinBio(generateLinkedInBio(prof, path, 0));
+      setCompletion(calcProfileCompletion(prof));
     };
-
-    const savedIds = savedRaw ? JSON.parse(savedRaw) : [];
-    const path = CAREER_PATHS.find(p => p.id === savedIds[0]) || CAREER_PATHS[0];
-
-    setProfile(prof);
-    setPrimaryPath(path);
-    setCvContent(generateCV(prof, path, 0));
-    setLinkedinBio(generateLinkedInBio(prof, path, 0));
-    setCompletion(calcProfileCompletion(prof));
-  }, []);
+    load();
+  }, [user]);
 
   const handleGenerate = () => {
     if (!profile?.fullName || profile.fullName.trim().length < 2) {
@@ -131,7 +150,7 @@ export default function BrandingPage() {
   };
 
   const handleDownloadPDF = () => {
-    window.print();
+    window.print(); // triggers browser Print → Save as PDF
   };
 
   const handleExportWord = () => {
@@ -151,20 +170,22 @@ export default function BrandingPage() {
 
   const handleConnectLinkedIn = () => {
     window.open('https://www.linkedin.com/profile/edit', '_blank', 'noopener,noreferrer');
-    localStorage.setItem('connected_linkedin', 'true');
-    setLinkedInConnected(true);
   };
 
-  const handleToggleVisibility = () => {
+  const handleToggleVisibility = async () => {
     const next = !profileVisible;
     setProfileVisible(next);
-    localStorage.setItem('profile_visible', String(next));
+    if (user) {
+      try {
+        await setDoc(doc(db, 'users', user.uid), { profileVisible: next }, { merge: true });
+      } catch { /* non-fatal */ }
+    }
   };
 
   const nextSteps = [
     { label: 'Complete onboarding', done: hasProfile },
     { label: 'Generate CV summary', done: cvContent.length > 0 },
-    { label: 'Connect LinkedIn', done: linkedInConnected },
+    { label: 'Update LinkedIn profile', done: false },
     { label: 'Join Talent Network', done: !!localStorage.getItem('joined_network') },
   ];
 
@@ -257,15 +278,10 @@ export default function BrandingPage() {
 
           <button
             onClick={handleConnectLinkedIn}
-            className={cn(
-              'w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all border-2',
-              linkedInConnected
-                ? 'border-blue-200 bg-blue-50 text-blue-700'
-                : 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-100'
-            )}
+            className="w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all border-2 border-blue-600 bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-100"
           >
             <Linkedin size={20} />
-            {linkedInConnected ? 'LinkedIn Connected ✓' : 'Connect LinkedIn'}
+            Update LinkedIn Profile
           </button>
         </div>
 
@@ -312,7 +328,7 @@ export default function BrandingPage() {
                   <button
                     onClick={handleDownloadPDF}
                     className="p-2 bg-white border border-purple-100 rounded-lg text-gray-500 hover:text-purple-600 transition-all shadow-sm"
-                    title="Download PDF (print dialog)"
+                    title="Print to PDF"
                   >
                     <Download size={18} />
                   </button>

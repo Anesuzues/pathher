@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Mail, Lock, User, Eye, EyeOff, ArrowRight, AlertCircle, CheckCircle2, ChevronLeft } from 'lucide-react';
@@ -46,10 +46,14 @@ export default function AuthPage() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
 
-  const { signIn, signUp, signInWithGoogle } = useAuth();
+  const { signIn, signUp, signInWithGoogle, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as any)?.from?.pathname || null;
+  const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname || null;
+
+  useEffect(() => {
+    if (user) navigate(from || '/recommendations', { replace: true });
+  }, [user, navigate, from]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -78,8 +82,7 @@ export default function AuthPage() {
       // RecommendationsPage redirects to /onboarding if no profile exists
       navigate(from || '/recommendations');
     } catch (err: any) {
-      console.error('Google sign-in error:', err.code, err.message);
-      setError(FIREBASE_ERRORS[err.code] || `Google sign-in failed (${err.code || 'unknown'}). Check the browser console for details.`);
+      setError(FIREBASE_ERRORS[err.code] || `Google sign-in failed (${err.code || 'unknown'}). Please try again.`);
     } finally {
       setIsGoogleLoading(false);
     }

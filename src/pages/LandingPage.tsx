@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import {
@@ -18,6 +18,7 @@ export default function LandingPage() {
   const journeyPath = user && hasProfile ? '/recommendations' : '/onboarding';
   const [showReset, setShowReset] = useState(false);
   const [resetStep, setResetStep] = useState<'intro' | 'breathing' | 'complete'>('intro');
+  const phaseTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [breathCount, setBreathCount] = useState(0);
   const [breathPhase, setBreathPhase] = useState<'Inhale' | 'Hold' | 'Exhale'>('Inhale');
 
@@ -28,14 +29,14 @@ export default function LandingPage() {
       
       const runPhase = () => {
         setBreathPhase('Inhale');
-        setTimeout(() => setBreathPhase('Hold'), 4000);
-        setTimeout(() => setBreathPhase('Exhale'), 8000);
+        phaseTimers.current.push(setTimeout(() => setBreathPhase('Hold'), 4000));
+        phaseTimers.current.push(setTimeout(() => setBreathPhase('Exhale'), 8000));
       };
 
       runPhase();
       timer = setInterval(() => {
         setBreathCount((prev) => {
-          if (prev >= 2) { // 3 cycles (0, 1, 2)
+          if (prev >= 2) {
             setResetStep('complete');
             return 2;
           }
@@ -44,7 +45,11 @@ export default function LandingPage() {
         });
       }, cycleDuration);
     }
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      phaseTimers.current.forEach(clearTimeout);
+      phaseTimers.current = [];
+    };
   }, [showReset, resetStep]);
 
   const closeReset = () => {

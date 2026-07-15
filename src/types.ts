@@ -3,7 +3,7 @@ export interface UserProfile {
   interests: string[];
   strengths: string[];
   goals: string[];
-  workStyle: string;
+  workStyle: string[];
 }
 
 export interface CareerPath {
