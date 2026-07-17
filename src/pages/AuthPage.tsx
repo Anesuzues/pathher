@@ -46,14 +46,18 @@ export default function AuthPage() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
 
-  const { signIn, signUp, signInWithGoogle, user } = useAuth();
+  const { signIn, signUp, signInWithGoogle, user, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname || null;
 
   useEffect(() => {
-    if (user) navigate(from || '/recommendations', { replace: true });
-  }, [user, navigate, from]);
+    if (!loading && user) navigate(from || '/recommendations', { replace: true });
+  }, [user, loading, navigate, from]);
+
+  // Don't render the form while Firebase is resolving auth state — prevents
+  // a flash of the sign-in form for already-logged-in users
+  if (loading) return null;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();

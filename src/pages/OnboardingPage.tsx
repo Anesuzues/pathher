@@ -91,7 +91,6 @@ const OPTIONS = {
 
 export default function OnboardingPage() {
   const [currentStep, setCurrentStep] = useState(0);
-  const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const { user, setHasProfile } = useAuth();
@@ -169,8 +168,12 @@ export default function OnboardingPage() {
     if (currentStep < STEPS.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
-      setIsSaving(true);
+      // Show loading screen immediately — before any await — so there is never a
+      // blank gap between the form disappearing and the spinner appearing, and so
+      // setHasProfile(true) below cannot trigger a route redirect before we render.
+      setIsGenerating(true);
       localStorage.setItem('pathher_profile', JSON.stringify(data));
+
       if (user) {
         try {
           await setDoc(doc(db, 'users', user.uid), { profile: data }, { merge: true });
@@ -178,12 +181,7 @@ export default function OnboardingPage() {
         } catch (e) {
           console.error('Failed to save profile to Firestore:', e);
         }
-      }
-      setIsSaving(false);
 
-      // Always regenerate AI content — refreshes recommendations when profile is updated
-      if (user) {
-        setIsGenerating(true);
         try {
           const idToken = await user.getIdToken();
           const aiData = await generateUserContent(data, idToken);
@@ -191,7 +189,6 @@ export default function OnboardingPage() {
         } catch (e) {
           console.error('AI generation failed — continuing without it:', e);
         }
-        setIsGenerating(false);
       }
 
       navigate('/recommendations');
@@ -410,22 +407,18 @@ export default function OnboardingPage() {
           </button>
           <button
             onClick={handleNext}
-            disabled={!isStepValid() || isSaving || isGenerating}
+            disabled={!isStepValid() || isGenerating}
             className={cn(
               "flex items-center gap-2 font-bold px-8 py-4 rounded-2xl transition-all shadow-lg",
-              !isStepValid() || isSaving
+              !isStepValid()
                 ? "bg-gray-100 text-gray-400 cursor-not-allowed shadow-none"
                 : "bg-gradient-to-r from-purple-600 to-pink-500 text-white shadow-purple-200 hover:shadow-purple-300"
             )}
           >
-            {isSaving ? (
-              <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-            ) : (
-              <>
-                {currentStep === STEPS.length - 1 ? 'See Results' : 'Next'}
-                <ChevronRight size={20} />
-              </>
-            )}
+            <>
+              {currentStep === STEPS.length - 1 ? 'See Results' : 'Next'}
+              <ChevronRight size={20} />
+            </>
           </button>
         </div>
       </div>
