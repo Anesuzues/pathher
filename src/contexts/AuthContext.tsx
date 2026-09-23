@@ -3,11 +3,11 @@ import {
   User,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithPopup,
   signOut as firebaseSignOut,
   onAuthStateChanged,
   updateProfile,
+  sendEmailVerification,
 } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../lib/firebase';
@@ -31,26 +31,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [hasProfile, setHasProfile] = useState(false);
 
   useEffect(() => {
-    if (!auth) {
-      console.warn('Firebase Auth is not initialized. Running in demo mode.');
-      setLoading(false);
-      return;
-    }
-
-    // Resolve any pending Google redirect sign-in
-    getRedirectResult(auth).catch((err) => {
-      console.error('Google redirect error:', err?.code, err?.message);
-    });
-
     const unsub = onAuthStateChanged(auth, async (u) => {
       setUser(u);
-      if (u && db) {
+      if (u) {
         try {
           const snap = await getDoc(doc(db, 'users', u.uid));
           setHasProfile(snap.exists() && !!snap.data()?.profile);
-        } catch (error) {
+        } catch {
           // Firestore unavailable or rules not set up — treat as no profile
-          console.warn('Firestore error:', error);
           setHasProfile(false);
         }
       } else {
@@ -62,28 +50,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string, name: string) => {
-    if (!auth) throw new Error('Firebase Auth is not initialized');
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(cred.user, { displayName: name });
+    await sendEmailVerification(cred.user);
   };
 
   const signIn = async (email: string, password: string) => {
-    if (!auth) throw new Error('Firebase Auth is not initialized');
     await signInWithEmailAndPassword(auth, email, password);
   };
 
   const signInWithGoogle = async () => {
-    if (!auth) throw new Error('Firebase Auth is not initialized');
-    await signInWithRedirect(auth, googleProvider);
+    await signInWithPopup(auth, googleProvider);
   };
 
   const signOut = async () => {
-    if (!auth) throw new Error('Firebase Auth is not initialized');
     await firebaseSignOut(auth);
-    localStorage.removeItem('pathher_profile');
-    localStorage.removeItem('saved_recommendations');
-    localStorage.removeItem('saved_opportunities');
-    localStorage.removeItem('joined_network');
+    const keys = [
+      'pathher_profile', 'saved_recommendations', 'saved_opportunities',
+      'joined_network', 'is_recruiter', 'read_notifications',
+      'connected_linkedin', 'profile_visible',
+    ];
+    keys.forEach(k => localStorage.removeItem(k));
   };
 
   return (

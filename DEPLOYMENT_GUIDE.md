@@ -26,7 +26,7 @@ Copy these **exact variable names** and paste the values from your `.env` file:
 | `VITE_FIREBASE_MESSAGING_SENDER_ID` | `509423391053` |
 | `VITE_FIREBASE_APP_ID` | `1:509423391053:web:7e67ece70c9abd269a6704` |
 | `VITE_FIREBASE_MEASUREMENT_ID` | `G-9E56ER95GG` |
-| `GEMINI_API_KEY` | `AIzaSyDMoQnUIx4klzRwTovXO7rUEWB-wsrjpZw` |
+| `GROQ_API_KEY` | your Groq API key from console.groq.com (server-side only, no VITE_ prefix) |
 
 **Important Notes:**
 - All Firebase variables MUST have the `VITE_` prefix

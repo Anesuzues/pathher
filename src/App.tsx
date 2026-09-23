@@ -1,12 +1,15 @@
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { Component, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Home, User, Briefcase, GraduationCap, LayoutDashboard,
-  Award, Menu, X, Bell, LogOut,
+  Award, Menu, X, Bell, LogOut, MailWarning,
 } from 'lucide-react';
+import { sendEmailVerification } from 'firebase/auth';
+import { auth } from './lib/firebase';
 import { cn } from './lib/utils';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Pages
 import LandingPage from './pages/LandingPage';
@@ -19,35 +22,7 @@ import EcosystemPage from './pages/EcosystemPage';
 import DashboardPage from './pages/DashboardPage';
 import ProfilePage from './pages/ProfilePage';
 import NotFoundPage from './pages/NotFoundPage';
-
-interface EBState { hasError: boolean; }
-interface EBProps { children: ReactNode; }
-
-class ErrorBoundary extends Component<EBProps, EBState> {
-  constructor(props: EBProps) {
-    super(props);
-    this.state = { hasError: false };
-  }
-  static getDerivedStateFromError(): EBState { return { hasError: true }; }
-  componentDidCatch(error: Error, info: unknown) { console.error(error, info); }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-8 space-y-4">
-          <h2 className="text-2xl font-bold text-gray-900">Something went wrong</h2>
-          <p className="text-gray-500 max-w-sm text-sm">An unexpected error occurred. Please refresh the page or try again.</p>
-          <button
-            onClick={() => this.setState({ hasError: false })}
-            className="px-6 py-3 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 transition-all"
-          >
-            Try again
-          </button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
+import LegalPage from './pages/LegalPage';
 
 function PrivateRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -68,12 +43,10 @@ function PrivateRoute({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-type NotifItem = { id: number; title: string; body: string; time: string; unread: boolean };
-
-const NOTIFICATIONS: NotifItem[] = [
+const NOTIFICATIONS = [
   { id: 1, title: 'Earn a verified certificate', body: 'PathHer has partnered with KnobzToLearn. Take the assessment, then sign up for the certificate matched to your path.', time: 'New', unread: true },
   { id: 2, title: 'Complete your assessment', body: 'Answer a few questions to get your recommended career path and certificate.', time: 'Tip', unread: false },
-];
+]
 
 function Navigation({
   isCollapsed, setIsCollapsed, isHovered, setIsHovered,
@@ -86,7 +59,6 @@ function Navigation({
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const notifications = NOTIFICATIONS;
   const [readIds, setReadIds] = useState<Set<number>>(() => {
     try {
       const raw = localStorage.getItem('read_notifications');
@@ -94,10 +66,10 @@ function Navigation({
     } catch { return new Set(); }
   });
   const { user, signOut } = useAuth();
-  const unreadCount = notifications.filter(n => n.unread && !readIds.has(n.id)).length;
+  const unreadCount = NOTIFICATIONS.filter(n => n.unread && !readIds.has(n.id)).length;
 
   const markAllRead = () => {
-    const allIds = notifications.map(n => n.id);
+    const allIds = NOTIFICATIONS.map(n => n.id);
     setReadIds(new Set(allIds));
     localStorage.setItem('read_notifications', JSON.stringify(allIds));
     setIsNotificationsOpen(false);
@@ -142,6 +114,8 @@ function Navigation({
             </Link>
           )}
           <button
+            type="button"
+            title="Toggle sidebar"
             onClick={toggleSidebar}
             className={cn('p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors', !sidebarExpanded && 'hidden')}
           >
@@ -222,7 +196,7 @@ function Navigation({
       {/* Mobile Header */}
       <header className="md:hidden fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-md border-b border-purple-100 z-50 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button onClick={toggleMobileMenu} className="p-2 text-gray-500 hover:bg-purple-50 rounded-lg">
+          <button type="button" title="Open menu" onClick={toggleMobileMenu} className="p-2 text-gray-500 hover:bg-purple-50 rounded-lg">
             <Menu size={24} />
           </button>
           <Link to="/" className="flex items-center gap-2">
@@ -255,12 +229,12 @@ function Navigation({
                   <h2 className="font-bold text-lg">Notifications</h2>
                   <p className="text-xs text-gray-400">{unreadCount} unread</p>
                 </div>
-                <button onClick={() => setIsNotificationsOpen(false)} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors">
+                <button type="button" title="Close notifications" onClick={() => setIsNotificationsOpen(false)} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors">
                   <X size={20} />
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto divide-y divide-purple-50">
-                {notifications.map(n => {
+                {NOTIFICATIONS.map(n => {
                   const isRead = readIds.has(n.id) || !n.unread;
                   return (
                     <div key={n.id} className={cn('p-5 flex gap-3', !isRead && 'bg-purple-50/50')}>
@@ -307,7 +281,7 @@ function Navigation({
                   <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-pink-500 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-purple-100">P</div>
                   <span className="font-black text-xl bg-gradient-to-r from-purple-700 to-pink-600 bg-clip-text text-transparent">PathHer</span>
                 </Link>
-                <button onClick={toggleMobileMenu} className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors">
+                <button type="button" title="Close menu" onClick={toggleMobileMenu} className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors">
                   <X size={24} />
                 </button>
               </div>
@@ -368,6 +342,44 @@ function Navigation({
   );
 }
 
+function EmailVerificationBanner() {
+  const { user } = useAuth();
+  const [dismissed, setDismissed] = useState(false);
+  const [resent, setResent] = useState(false);
+
+  if (!user || user.emailVerified || dismissed) return null;
+
+  const handleResend = async () => {
+    try {
+      await sendEmailVerification(auth.currentUser!);
+      setResent(true);
+      setTimeout(() => setResent(false), 4000);
+    } catch { /* rate-limited — ignore */ }
+  };
+
+  return (
+    <div className="flex items-center justify-between gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-2xl mb-6">
+      <div className="flex items-center gap-3 min-w-0">
+        <MailWarning size={18} className="text-amber-600 shrink-0" />
+        <p className="text-sm text-amber-800 font-medium truncate">
+          Please verify your email address to secure your account.
+        </p>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          onClick={handleResend}
+          className="text-xs font-bold text-amber-700 hover:underline"
+        >
+          {resent ? 'Sent!' : 'Resend'}
+        </button>
+        <button type="button" title="Dismiss" onClick={() => setDismissed(true)} className="text-amber-500 hover:text-amber-700 transition-colors">
+          <X size={16} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AppShell() {
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [isHovered, setIsHovered] = useState(false);
@@ -386,7 +398,7 @@ function AppShell() {
         sidebarExpanded ? 'md:ml-[280px]' : 'md:ml-[80px]'
       )}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
-          <ErrorBoundary>
+          <EmailVerificationBanner />
           <AnimatePresence mode="wait">
             <Routes>
               <Route path="/" element={<LandingPage />} />
@@ -398,10 +410,11 @@ function AppShell() {
               <Route path="/ecosystem" element={<PrivateRoute><EcosystemPage /></PrivateRoute>} />
               <Route path="/dashboard" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
               <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
+              <Route path="/terms" element={<LegalPage />} />
+              <Route path="/privacy" element={<LegalPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </AnimatePresence>
-          </ErrorBoundary>
         </div>
       </main>
     </div>
@@ -410,10 +423,12 @@ function AppShell() {
 
 export default function App() {
   return (
-    <Router>
-      <AuthProvider>
-        <AppShell />
-      </AuthProvider>
-    </Router>
+    <ErrorBoundary>
+      <Router>
+        <AuthProvider>
+          <AppShell />
+        </AuthProvider>
+      </Router>
+    </ErrorBoundary>
   );
 }

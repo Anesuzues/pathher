@@ -15,13 +15,13 @@ const FIREBASE_ERRORS: Record<string, string> = {
   'auth/wrong-password': 'Incorrect password. Please try again.',
   'auth/invalid-credential': 'Incorrect email or password.',
   'auth/popup-closed-by-user': 'Google sign-in was cancelled.',
-  'auth/cancelled-popup-request': 'Google sign-in was cancelled.',
-  'auth/popup-blocked': 'Pop-up was blocked by your browser. Please allow pop-ups for this site and try again.',
+  'auth/popup-blocked': 'Popup was blocked by your browser. Please allow popups for this site.',
   'auth/too-many-requests': 'Too many attempts. Please try again later.',
-  'auth/network-request-failed': 'Network error. Please check your connection and try again.',
-  'auth/unauthorized-domain': 'This domain is not authorised. Add it in Firebase Console → Authentication → Authorised Domains.',
-  'auth/operation-not-allowed': 'Google sign-in is not enabled. Enable it in Firebase Console → Authentication → Sign-in Method.',
-  'auth/internal-error': 'An internal authentication error occurred. Please try again.',
+  'auth/unauthorized-domain': 'This domain is not authorised for Google sign-in. Add it in Firebase Console → Authentication → Settings → Authorised domains.',
+  'auth/operation-not-allowed': 'Google sign-in is not enabled. Enable it in Firebase Console → Authentication → Sign-in method.',
+  'auth/cancelled-popup-request': 'Google sign-in was cancelled.',
+  'auth/network-request-failed': 'Network error. Check your connection and try again.',
+  'auth/internal-error': 'An internal error occurred. Check the browser console for details.',
 };
 
 function GoogleIcon() {
@@ -46,15 +46,18 @@ export default function AuthPage() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
 
-  const { signIn, signUp, signInWithGoogle, user } = useAuth();
+  const { signIn, signUp, signInWithGoogle, user, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as any)?.from?.pathname || null;
+  const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname || null;
 
-  // After Google redirect returns, user will be set — navigate automatically
   useEffect(() => {
-    if (user) navigate(from || '/recommendations', { replace: true });
-  }, [user]);
+    if (!loading && user) navigate(from || '/recommendations', { replace: true });
+  }, [user, loading, navigate, from]);
+
+  // Don't render the form while Firebase is resolving auth state — prevents
+  // a flash of the sign-in form for already-logged-in users
+  if (loading) return null;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -80,10 +83,11 @@ export default function AuthPage() {
     setIsGoogleLoading(true);
     try {
       await signInWithGoogle();
-      // signInWithRedirect navigates away — code below only runs if it throws
+      // RecommendationsPage redirects to /onboarding if no profile exists
+      navigate(from || '/recommendations');
     } catch (err: any) {
-      console.error('Google sign-in error:', err.code, err.message);
       setError(FIREBASE_ERRORS[err.code] || `Google sign-in failed (${err.code || 'unknown'}). Please try again.`);
+    } finally {
       setIsGoogleLoading(false);
     }
   };
@@ -359,8 +363,8 @@ export default function AuthPage() {
 
         <p className="text-center text-xs text-gray-400 font-medium">
           By continuing you agree to our{' '}
-          <a href="#" className="text-purple-600 hover:underline">Terms</a> and{' '}
-          <a href="#" className="text-purple-600 hover:underline">Privacy Policy</a>.
+          <a href="/terms" className="text-purple-600 hover:underline">Terms</a> and{' '}
+          <a href="/privacy" className="text-purple-600 hover:underline">Privacy Policy</a>.
         </p>
       </div>
     </div>

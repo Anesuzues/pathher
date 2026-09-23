@@ -4,55 +4,27 @@ import {
   FileText, Linkedin, Download, Copy, RefreshCw, Check, Sparkles, Edit3
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 import { CAREER_PATHS } from '../constants';
 
-function buildCVPrompt(profile: any, path: any): string {
-  return `You are a professional CV writer for South African job applicants. Create a plain-text CV for:
-
-Name: ${profile.fullName || 'Applicant'}
-Email: ${profile.email || ''}
-Career Path: ${path.title}
-Education: ${profile.education || 'Not specified'}
-Key Strengths: ${(profile.strengths || []).join(', ')}
-Interests: ${(profile.interests || []).join(', ')}
-Career Goals: ${(profile.goals || []).join(', ')}
-Work Style: ${(profile.workStyle || []).join(', ')}
-Required Skills for Role: ${(path.skillsNeeded || []).join(', ')}
-
-Write a complete CV with these sections: NAME/CONTACT, SUMMARY (3 compelling sentences), SKILLS (bullet list combining required skills and applicant strengths), EDUCATION, CAREER INTERESTS, CAREER GOALS, PREFERRED WORK STYLE. Use • for bullets. Optimize for South African ATS systems. Keep it professional and authentic.`;
-}
-
-function buildLinkedInPrompt(profile: any, path: any): string {
-  return `Write a LinkedIn About section for a young South African woman entering the tech industry.
-
-Name: ${profile.fullName || 'Applicant'}
-Aspiring Role: ${path.title}
-Key Strengths: ${(profile.strengths || []).join(', ')}
-Interests: ${(profile.interests || []).join(', ')}
-Career Goals: ${(profile.goals || []).join(', ')}
-Work Style: ${(profile.workStyle || []).join(', ')}
-
-Guidelines:
-- Max 300 words
-- Warm, authentic, and professional tone
-- 1-2 well-placed emojis
-- Mention South African tech context naturally
-- End with 4-6 relevant hashtags including #WomenInTech #SouthAfricaTech
-- Do NOT use generic filler phrases`;
-}
-
-function generateCV(profile: any, path: any): string {
+function generateCV(profile: any, path: any, variation: number): string {
   const name = (profile.fullName || 'Your Name').toUpperCase();
   const email = profile.email || '';
+  const summaries = [
+    `Highly motivated ${profile.strengths?.[0] || 'professional'} with a passion for ${profile.interests?.[0] || 'technology'} and ${profile.interests?.[1] || 'innovation'}. Identified as a strong fit for ${path.title} through PathHer AI, with career goals including ${profile.goals?.[0] || 'excellence'}. Committed to continuous learning and contributing to South Africa's digital economy.`,
+    `Results-driven individual with strengths in ${(profile.strengths || []).join(', ') || 'multiple areas'}. Passionate about ${profile.interests?.[0] || 'making an impact'} and committed to ${profile.goals?.[0] || 'professional growth'}. Seeking to grow as a ${path.title} in South Africa's dynamic job market.`,
+  ];
   return `${name}
 ${path.title} | South Africa${email ? '\n' + email : ''}
 
 SUMMARY
-Highly motivated individual with a passion for ${(profile.interests || ['technology'])[0]} and a drive for ${(profile.goals || ['growth'])[0]}. Identified as a strong fit for ${path.title} through PathHer AI. Committed to continuous learning and contributing to South Africa's digital economy.
+${summaries[variation % summaries.length]}
 
 SKILLS
-${(path.skillsNeeded as string[]).map((s: string) => `• ${s}`).join('\n')}
+${(path.skillsNeeded as string[]).map(s => `• ${s}`).join('\n')}
 ${(profile.strengths || []).map((s: string) => `• ${s}`).join('\n')}
 
 EDUCATION
@@ -71,11 +43,19 @@ ${(profile.workStyle || []).map((w: string) => `• ${w}`).join('\n')}
 Profile verified by PathHer AI`;
 }
 
-function generateLinkedInBio(profile: any, path: any): string {
+function generateLinkedInBio(profile: any, path: any, variation: number): string {
+  const hasImpact = (profile.goals || []).includes('Social Impact');
+  const hasEntrepreneurship = (profile.goals || []).includes('Entrepreneurship');
   const interests = (profile.interests || []).slice(0, 2).join(' & ') || 'Tech';
   const strengths = (profile.strengths || []).slice(0, 2).join(' and ') || 'driven';
   const skills = (path.skillsNeeded as string[]).slice(0, 2).join(' and ');
-  return `Aspiring ${path.title} | ${interests} enthusiast 🚀\n\n${strengths} are my superpowers. Actively building skills in ${skills} after mapping my path through PathHer AI.\n\nOpen to opportunities in South Africa's growing tech ecosystem.\n\n#WomenInTech #SouthAfricaTech #${path.title.replace(/[\s/]+/g, '')} #PathHerAI`;
+  const workStyle = profile.workStyle?.[0] || 'collaborative';
+
+  const bios = [
+    `Aspiring ${path.title} | ${interests} enthusiast 🚀\n\n${strengths} are my superpowers. Recently mapped my career path through PathHer AI and actively building skills in ${skills}.\n\n${hasImpact ? 'Passionate about using my skills to drive social change in SA. ' : ''}${hasEntrepreneurship ? 'Entrepreneurial mindset, building for impact. ' : ''}Open to ${workStyle} opportunities in South Africa.\n\n#WomenInTech #SouthAfricaTech #${path.title.replace(/[\s/]+/g, '')} #PathHerAI`,
+    `🌟 Future ${path.title} from South Africa\n\nI believe in the power of ${profile.interests?.[0] || 'technology'} to transform lives. My strengths in ${(profile.strengths || []).slice(0, 3).join(', ') || 'various areas'} drive me to pursue excellence every day.\n\nCurrently on my PathHer AI journey — exploring ${path.title} and connecting with trailblazers in SA's ecosystem.\n\n${hasImpact ? '💡 Goal: Use skills for meaningful social impact.\n\n' : ''}Preferred work: ${(profile.workStyle || []).join(', ') || 'flexible environments'}\n\nLet's connect and grow together! 🤝\n\n#YoungWomenInTech #SACareer #PathHerAI`,
+  ];
+  return bios[variation % bios.length];
 }
 
 function calcProfileCompletion(profile: any): number {
@@ -93,65 +73,72 @@ function calcProfileCompletion(profile: any): number {
 
 export default function BrandingPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeTab, setActiveTab] = useState<'cv' | 'linkedin'>('cv');
   const [copied, setCopied] = useState(false);
+  const [validationError, setValidationError] = useState('');
+  const [variation, setVariation] = useState(0);
   const [profile, setProfile] = useState<any>(null);
   const [primaryPath, setPrimaryPath] = useState(CAREER_PATHS[0]);
   const [cvContent, setCvContent] = useState('');
   const [linkedinBio, setLinkedinBio] = useState('');
   const [completion, setCompletion] = useState(0);
-  const [linkedInConnected, setLinkedInConnected] = useState(
-    () => localStorage.getItem('connected_linkedin') === 'true'
-  );
-  const [profileVisible, setProfileVisible] = useState(
-    () => localStorage.getItem('profile_visible') !== 'false'
-  );
+  const [profileVisible, setProfileVisible] = useState(true);
 
   useEffect(() => {
-    const raw = localStorage.getItem('pathher_profile');
-    const savedRaw = localStorage.getItem('saved_recommendations');
+    const load = async () => {
+      let prof: any = null;
+      let savedIds: string[] = [];
 
-    const prof = raw ? JSON.parse(raw) : {
-      fullName: '', email: '', education: '',
-      interests: [], strengths: [], goals: [], workStyle: [],
+      if (user) {
+        try {
+          const snap = await getDoc(doc(db, 'users', user.uid));
+          if (snap.exists()) {
+            const data = snap.data();
+            if (data?.profile) prof = data.profile;
+            if (data?.savedRecommendations) savedIds = data.savedRecommendations;
+            if (typeof data?.profileVisible === 'boolean') setProfileVisible(data.profileVisible);
+          }
+        } catch { /* fallback to localStorage */ }
+      }
+
+      if (!prof) {
+        const raw = localStorage.getItem('pathher_profile');
+        prof = raw ? JSON.parse(raw) : {
+          fullName: '', email: '', education: '',
+          interests: [], strengths: [], goals: [], workStyle: [],
+        };
+      }
+      if (!savedIds.length) {
+        const savedRaw = localStorage.getItem('saved_recommendations');
+        savedIds = savedRaw ? JSON.parse(savedRaw) : [];
+      }
+
+      const path = CAREER_PATHS.find(p => p.id === savedIds[0]) || CAREER_PATHS[0];
+      setProfile(prof);
+      setPrimaryPath(path);
+      setCvContent(generateCV(prof, path, 0));
+      setLinkedinBio(generateLinkedInBio(prof, path, 0));
+      setCompletion(calcProfileCompletion(prof));
     };
+    load();
+  }, [user]);
 
-    const savedIds = savedRaw ? JSON.parse(savedRaw) : [];
-    const path = CAREER_PATHS.find(p => p.id === savedIds[0]) || CAREER_PATHS[0];
-
-    setProfile(prof);
-    setPrimaryPath(path);
-    setCvContent(generateCV(prof, path));
-    setLinkedinBio(generateLinkedInBio(prof, path));
-    setCompletion(calcProfileCompletion(prof));
-  }, []);
-
-  const handleGenerate = async () => {
-    if (!profile) return;
-    setIsGenerating(true);
-    const type = activeTab;
-    const prompt = type === 'cv'
-      ? buildCVPrompt(profile, primaryPath)
-      : buildLinkedInPrompt(profile, primaryPath);
-
-    try {
-      const res = await fetch('/api/gemini', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, type }),
-      });
-      if (!res.ok) throw new Error('API error');
-      const { text } = await res.json();
-      if (type === 'cv') setCvContent(text);
-      else setLinkedinBio(text);
-    } catch {
-      // Fallback to template if AI is unavailable
-      if (type === 'cv') setCvContent(generateCV(profile, primaryPath));
-      else setLinkedinBio(generateLinkedInBio(profile, primaryPath));
-    } finally {
-      setIsGenerating(false);
+  const handleGenerate = () => {
+    if (!profile?.fullName || profile.fullName.trim().length < 2) {
+      setValidationError('Please complete your profile (at least name and interests) before generating branding materials.');
+      return;
     }
+    setValidationError('');
+    setIsGenerating(true);
+    const next = variation + 1;
+    setTimeout(() => {
+      setVariation(next);
+      setCvContent(generateCV(profile, primaryPath, next));
+      setLinkedinBio(generateLinkedInBio(profile, primaryPath, next));
+      setIsGenerating(false);
+    }, 1500);
   };
 
   const handleCopy = () => {
@@ -163,7 +150,7 @@ export default function BrandingPage() {
   };
 
   const handleDownloadPDF = () => {
-    window.print();
+    window.print(); // triggers browser Print → Save as PDF
   };
 
   const handleExportWord = () => {
@@ -183,20 +170,22 @@ export default function BrandingPage() {
 
   const handleConnectLinkedIn = () => {
     window.open('https://www.linkedin.com/profile/edit', '_blank', 'noopener,noreferrer');
-    localStorage.setItem('connected_linkedin', 'true');
-    setLinkedInConnected(true);
   };
 
-  const handleToggleVisibility = () => {
+  const handleToggleVisibility = async () => {
     const next = !profileVisible;
     setProfileVisible(next);
-    localStorage.setItem('profile_visible', String(next));
+    if (user) {
+      try {
+        await setDoc(doc(db, 'users', user.uid), { profileVisible: next }, { merge: true });
+      } catch { /* non-fatal */ }
+    }
   };
 
   const nextSteps = [
     { label: 'Complete onboarding', done: hasProfile },
     { label: 'Generate CV summary', done: cvContent.length > 0 },
-    { label: 'Connect LinkedIn', done: linkedInConnected },
+    { label: 'Update LinkedIn profile', done: false },
     { label: 'Join Talent Network', done: !!localStorage.getItem('joined_network') },
   ];
 
@@ -253,6 +242,9 @@ export default function BrandingPage() {
               </div>
             </div>
 
+            {validationError && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">{validationError}</p>
+            )}
             <button
               onClick={handleGenerate}
               disabled={isGenerating}
@@ -286,15 +278,10 @@ export default function BrandingPage() {
 
           <button
             onClick={handleConnectLinkedIn}
-            className={cn(
-              'w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all border-2',
-              linkedInConnected
-                ? 'border-blue-200 bg-blue-50 text-blue-700'
-                : 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-100'
-            )}
+            className="w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all border-2 border-blue-600 bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-100"
           >
             <Linkedin size={20} />
-            {linkedInConnected ? 'LinkedIn Connected ✓' : 'Connect LinkedIn'}
+            Update LinkedIn Profile
           </button>
         </div>
 
@@ -341,7 +328,7 @@ export default function BrandingPage() {
                   <button
                     onClick={handleDownloadPDF}
                     className="p-2 bg-white border border-purple-100 rounded-lg text-gray-500 hover:text-purple-600 transition-all shadow-sm"
-                    title="Download PDF (print dialog)"
+                    title="Print to PDF"
                   >
                     <Download size={18} />
                   </button>
@@ -350,7 +337,7 @@ export default function BrandingPage() {
 
               <AnimatePresence mode="wait">
                 <motion.div
-                  key={activeTab}
+                  key={`${activeTab}-${variation}`}
                   initial={{ opacity: 0, x: 10 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -10 }}

@@ -3,8 +3,9 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Download, X, Plus, ChevronDown, Briefcase, XCircle, LayoutDashboard, UserCheck, Users,
 } from 'lucide-react';
-import { Timestamp } from 'firebase/firestore';
-import { saveRole, loadUserRoles, closeRole, loadUserField, saveUserField, PostedRole } from '../lib/userdata';
+import { Timestamp, doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { saveRole, loadUserRoles, closeRole, PostedRole } from '../lib/userdata';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 
@@ -16,36 +17,23 @@ export default function DashboardPage() {
   const [postedRoles, setPostedRoles] = useState<PostedRole[]>([]);
   const [isPostingRole, setIsPostingRole] = useState(false);
   const [isRecruiter, setIsRecruiter] = useState(false);
-  const [roleLoading, setRoleLoading] = useState(true);
+  const [recruiterRequested, setRecruiterRequested] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
     if (!user) return;
-    Promise.all([
-      loadUserField<boolean>(user.uid, 'isRecruiter', false),
-      loadUserRoles(user.uid),
-    ]).then(([recruiter, roles]) => {
-      setIsRecruiter(recruiter);
+    loadUserRoles(user.uid).then(roles => {
       setPostedRoles(roles.sort((a, b) => b.createdAt.seconds - a.createdAt.seconds));
-      setRoleLoading(false);
     });
+    getDoc(doc(db, 'users', user.uid)).then(snap => {
+      if (snap.exists()) {
+        if (snap.data()?.isRecruiter === true) setIsRecruiter(true);
+        if (snap.data()?.recruiterRequested === true) setRecruiterRequested(true);
+      }
+    }).catch(() => { /* non-fatal */ });
   }, [user]);
 
-  if (roleLoading) {
-    return (
-      <div className="min-h-[70vh] flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-purple-100 border-t-purple-600 rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   if (!isRecruiter) {
-    const handleRequestAccess = async () => {
-      if (!user) return;
-      await saveUserField(user.uid, 'isRecruiter', true);
-      setIsRecruiter(true);
-    };
-
     return (
       <div className="min-h-[70vh] flex flex-col items-center justify-center text-center space-y-6 px-4">
         <div className="w-20 h-20 rounded-3xl bg-purple-50 flex items-center justify-center text-purple-600">
@@ -57,13 +45,26 @@ export default function DashboardPage() {
             The talent dashboard is available to verified employers and hiring partners. Request access to unlock candidate analytics and role posting.
           </p>
         </div>
-        <button
-          onClick={handleRequestAccess}
-          className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-2xl font-bold hover:shadow-lg hover:shadow-purple-200 transition-all"
-        >
-          Request Recruiter Access
-        </button>
-        <p className="text-xs text-gray-400">For demo purposes, clicking above grants instant access.</p>
+        {recruiterRequested ? (
+          <div className="px-8 py-4 bg-green-50 border border-green-200 text-green-700 rounded-2xl font-bold text-sm text-center max-w-xs">
+            Request received — our team will review your application and get back to you within 2 business days.
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={async () => {
+              setRecruiterRequested(true);
+              if (user) {
+                try {
+                  await setDoc(doc(db, 'users', user.uid), { recruiterRequested: true }, { merge: true });
+                } catch { /* non-fatal */ }
+              }
+            }}
+            className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-2xl font-bold hover:shadow-lg hover:shadow-purple-200 transition-all"
+          >
+            Request Recruiter Access
+          </button>
+        )}
       </div>
     );
   }
@@ -141,7 +142,7 @@ export default function DashboardPage() {
               exit={{ scale: 0.95, opacity: 0 }}
               className="bg-white rounded-[2.5rem] p-10 w-full max-w-lg space-y-8 relative"
             >
-              <button onClick={() => setShowPostModal(false)} className="absolute top-6 right-6 p-2 text-gray-400 hover:text-gray-600">
+              <button type="button" title="Close" onClick={() => setShowPostModal(false)} className="absolute top-6 right-6 p-2 text-gray-400 hover:text-gray-600">
                 <X size={22} />
               </button>
               {!jobPosted ? (
@@ -165,6 +166,7 @@ export default function DashboardPage() {
                       <label className="text-sm font-bold text-gray-700">Job Type</label>
                       <div className="relative">
                         <select
+                          title="Job type"
                           value={jobType}
                           onChange={e => setJobType(e.target.value)}
                           className="w-full px-4 py-3 bg-gray-50 border-2 border-transparent focus:border-purple-500 focus:bg-white rounded-2xl outline-none font-medium text-sm appearance-none cursor-pointer"
@@ -205,7 +207,7 @@ export default function DashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 md:gap-6">
         <div className="space-y-1">
           <h1 className="text-2xl md:text-3xl font-bold">Recruiter Dashboard</h1>
-          <p className="text-gray-500 text-sm md:text-base">Welcome back, {user?.displayName?.split(' ')[0] || 'there'}. Manage the roles you've posted.</p>
+          <p className="text-gray-500 text-sm md:text-base">Welcome back, {user?.displayName || user?.email?.split('@')[0] || 'Recruiter'}. Manage the roles you've posted.</p>
         </div>
         <div className="flex flex-wrap gap-3">
           <button

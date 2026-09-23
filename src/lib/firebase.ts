@@ -12,20 +12,10 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
-// Validate Firebase config
-const isConfigValid = firebaseConfig.apiKey && 
-                      firebaseConfig.authDomain && 
-                      firebaseConfig.projectId;
+const app = initializeApp(firebaseConfig);
 
-if (!isConfigValid) {
-  console.error('Firebase configuration is missing. Please check your environment variables.');
-  console.error('Required variables: VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN, VITE_FIREBASE_PROJECT_ID');
-}
-
-const app = isConfigValid ? initializeApp(firebaseConfig) : null;
-
-export const auth = app ? getAuth(app) : null;
-export const db = app ? getFirestore(app) : null;
+export const auth = getAuth(app);
+export const db = getFirestore(app, 'default');
 
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });

@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>PathHer — UI/UX Test Cases</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      font-size: 12px;
+      color: #1a1a2e;
+      background: #fff;
+      padding: 40px 48px;
+      max-width: 900px;
+      margin: auto;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 3px solid #7c3aed;
+      padding-bottom: 16px;
+      margin-bottom: 28px;
+    }
+    .header-left h1 {
+      font-size: 22px;
+      font-weight: 800;
+      color: #7c3aed;
+      letter-spacing: -0.5px;
+    }
+    .header-left p {
+      font-size: 11px;
+      color: #64748b;
+      margin-top: 3px;
+    }
+    .badge {
+      background: #f3e8ff;
+      color: #7c3aed;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid #ddd6fe;
+    }
+
+    /* Section */
+    .section {
+      margin-bottom: 28px;
+      page-break-inside: avoid;
+    }
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #7c3aed;
+      background: #f3e8ff;
+      padding: 7px 12px;
+      border-radius: 6px;
+      margin-bottom: 10px;
+      letter-spacing: 0.2px;
+    }
+
+    /* Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11.5px;
+    }
+    thead {
+      background: #1a1a2e;
+      color: #fff;
+    }
+    thead th {
+      padding: 8px 10px;
+      text-align: left;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+    tbody tr:nth-child(even) { background: #f8f5ff; }
+    tbody tr:nth-child(odd)  { background: #fff; }
+    tbody td {
+      padding: 8px 10px;
+      border-bottom: 1px solid #e9d5ff;
+      vertical-align: top;
+      line-height: 1.5;
+    }
+    .id-col { width: 48px; font-weight: 700; color: #7c3aed; }
+    .test-col { width: 180px; font-weight: 600; }
+    .steps-col { width: 260px; color: #334155; }
+    .expected-col { color: #166534; }
+
+    /* Pass/Fail column */
+    .pf-col { width: 80px; text-align: center; }
+    .pf-box {
+      display: inline-block;
+      width: 56px;
+      height: 20px;
+      border: 1.5px solid #d1d5db;
+      border-radius: 4px;
+    }
+
+    /* Footer */
+    .footer {
+      margin-top: 36px;
+      border-top: 2px solid #e9d5ff;
+      padding-top: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 10px;
+      color: #94a3b8;
+    }
+    .footer strong { color: #7c3aed; }
+
+    /* Summary box */
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    .summary-card {
+      border: 1.5px solid #e9d5ff;
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+    .summary-card .num {
+      font-size: 24px;
+      font-weight: 800;
+      color: #7c3aed;
+      line-height: 1;
+    }
+    .summary-card .label {
+      font-size: 10px;
+      color: #64748b;
+      margin-top: 4px;
+    }
+
+    @media print {
+      body { padding: 20px 28px; }
+      .section { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <h1>PathHer — UI/UX Test Cases</h1>
+      <p>Generated: 2 July 2026 &nbsp;|&nbsp; Version: 1.0 &nbsp;|&nbsp; Tester: _________________ &nbsp;|&nbsp; Date: _________________</p>
+    </div>
+    <div class="badge">QA DOCUMENT</div>
+  </div>
+
+  <!-- Summary -->
+  <div class="summary">
+    <div class="summary-card"><div class="num">7</div><div class="label">Test Sections</div></div>
+    <div class="summary-card"><div class="num">27</div><div class="label">Total Test Cases</div></div>
+    <div class="summary-card"><div class="num">0</div><div class="label">Passed</div></div>
+    <div class="summary-card"><div class="num">0</div><div class="label">Failed</div></div>
+  </div>
+
+  <!-- 1. Landing Page -->
+  <div class="section">
+    <div class="section-title">1. Landing Page</div>
+    <table>
+      <thead>
+        <tr>
+          <th class="id-col">#</th>
+          <th class="test-col">Test Case</th>
+          <th class="steps-col">Steps</th>
+          <th class="expected-col">Expected Result</th>
+          <th class="pf-col">Pass / Fail</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="id-col">L1</td>
+          <td class="test-col">CTA routes new users correctly</td>
+          <td class="steps-col">Open in incognito → click "Start Your Journey"</td>
+          <td class="expected-col">Lands on /onboarding</td>
+          <td class="pf-col"><div class="pf-box"></div></td>
+        </tr>
+        <tr>
+          <td class="id-col">L2</td>
+          <td class="test-col">CTA routes returning users correctly</td>
+          <td class="steps-col">Log in (with profile) → go to / → click "Start Your Journey"</td>
+          <td class="expected-col">Lands on /recommendations, skips onboarding</td>
+          <td class="pf-col"><div class="pf-box"></div></td>
+        </tr>
+        <tr>
+          <td class="id-col">L3</td>
+          <td class="test-col">No broken images</td>
+          <td class="steps-col">Load landing page, inspect all avatar/image areas</td>
+          <td class="expected-col">All show initials or gradient divs — no broken image icons</td>
+          <td class="pf-col"><div class="pf-box"></div></td>
+        </tr>
+        <tr>
+          <td class="id-col">L4</td>
+          <td class="test-col">Footer links work</td>
+          <td class="steps-col">Click Terms, Privacy, and support email in footer</td>
+          <td class="expected-col">/terms and /privacy load; email opens mail client</td>
+          <td class="pf-col"><div class="pf-box"></div></td>
+        </tr>
+        <tr>
+          <td class="id-col">L5</td>
+          <td class="test-col">Mobile responsive</td>
+          <td class="steps-col">Resize browser to 375px width (or use phone)</td>
+          <td class="expected-col">No horizontal overflow, nav collapses, text readable</td>
+          <td class="pf-col"><div class="pf-box"></div></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 2. Auth Page -->
+  <div class="section">
+    <div class="section-title">2. Auth Page (Sign Up / Sign In)</div>
+    <table>
+      <thead>
+        <tr>
+          <th class="id-col">#</th>
+          <th class="test-col">Test Case</th>
+          <th class="steps-col">Steps</th>
+          <th class="expected-col">Expected Result</th>
+          <th class="pf-col">Pass / Fail</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="id-col">A1</td>
+          <td class="test-col">Email sign up</td>
+          <td class="steps-col">Enter new email + strong password → click Sign Up</td>
+          <td class="expected-col">Account created, redirected to /onboarding</td>
+          <td class="pf-col"><div class="pf-box"></div></td>
+        </tr>
+        <tr>
+          <td class="id-col">A2</td>
+          <td class="test-col">Google sign-in</td>
+          <td class="steps-col">Click "Continue with Google" → select account in popup</td>
+          <td class="expected-col">Signs in successfully, popup closes, redirected</td>
+          <td class="pf-col"><div class="pf-box"></div></td>
+        </tr>
+        <tr>
+          <td class="id-col">A3</td>
+          <td class="test-col">Wrong password error</td>
+          <td class="steps-col">Enter valid email + wrong password → click Sign In</td>
+          <td class="expected-col">Inline error message displayed, stays on auth page</td>
+          <td class="pf-col"><div class="pf-box"></div></td>
+        </tr>
+        <tr>
+          <td class="id-col">A4</td>
+          <td class="test-col">Terms link in footer</td>
+          <td class="steps-col">Click "Terms of Service" link on auth page</td>
+          <td class="expected-col">Opens /terms page</td>
+          <td class="pf-col"><div class="pf-box"></div></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 3. Onboarding -->
+  <div class="section">
+    <div class="section-title">3. Onboarding Page</div>
+    <table>
+      <thead>
+        <tr>
+          <th class="id-col">#</th>
+          <th class="test-col">Test Case</th>
+          <th class="steps-col">Steps</th>
+          <th class="expected-col">Expected Result</th>
+          <th class="pf-col">Pass / Fail</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="id-col">O1</td>
+          <td class="test-col">Returning user pre-fill</td>
+          <td class="steps-col">Log out → log back in → navigate to /onboarding</td>
+          <td class="expected-col">Form pre-filled with previously saved profile data</td>
+          <td class="pf-col"><div class="pf-box"></div></td>
+        </tr>
+        <tr>
+          <td class="id-col">O2</td>
+          <td class="test-col">Cross-device persistence</td>
+          <td class="steps-col">Fill profile on desktop → log in on mobile browser</td>
+          <td class="expected-col">Same profile data loads from Firestore on mobile</td>
+          <td class="pf-col"><div class="pf-box"></div></td>
+        </tr>
+        <tr>
+          <td class="id-col">O3</td>
+          <td class="test-col">AI generation loading state</td>
+          <td class="steps-col">Complete all fields → click Submit / Next</td>
+          <td class="expected-col">"Personalising your journey" spinner appears</td>
+          <td class="pf-col"><div class="pf-box"></div></td>
+        </tr>
+        <tr>
+          <td class="id-col">O4</td>
+          <td class="test-col">AI generation completes</td>
+          <td class="steps-col">Submit full, valid profile</td>
+          <td class="expected-col">Redirected to /recommendations with AI-generated content</td>
+          <td class="pf-col"><div class="pf-box"></div></td>
+        </tr>
+        <tr>
+          <td class="id-col">O5</td>
+          <td class="test-col">Validation — blank name</td>
+          <td class="steps-col">Leave full name empty → click Submit</td>
+          <td class="expected-col">Validation error shown, no API call made</td>
+          <td class="pf-col"><div class="pf-box"></div></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 4. Recommendations / Dashboard -->
+  <div class="section">
+    <div class="section-title">4. Recommendations & Dashboard</div>
+    <table>
+      <thead>
+        <tr>
+          <th class="id-col">#</th>
+          <th class="test-col">Test Case</th>
+          <th class="steps-col">Steps</th>
+          <th class="expected-col">Expected Result</th>
+          <th class="pf-col">Pass / Fail</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="id-col">R1</td>
+          <td class="test-col">AI content is profile-specific</td>
+          <td class="steps-col">Complete onboarding → view career paths on recommendations page</td>
+          <td class="expected-col">Career titles and descriptions reference user's actual interests/goals</td>
+          <td class="pf-col"><div class="pf-box"></div></td>
+        </tr>
+        <tr>
+          <td class="id-col">R2</td>
+          <td class="test-col">Recruiter gate persists</td>
+          <td class="steps-col">Enable recruiter mode → log out → log back in</td>
+          <td class="expected-col">Recruiter view still active (stored in Firestore, not localStorage)</td>
+          <td class="pf-col"><div class="pf-box"></div></td>
+        </tr>
+        <tr>
+          <td class="id-col">R3</td>
+          <td class="test-col">Courses display</td>
+          <td class="steps-col">Navigate to courses section on recommendations page</td>
+          <td class="expected-col">4 courses shown with platform name, duration, and star rating</td>
+          <td class="pf-col"><div class="pf-box"></div></td>
+        </tr>
+        <tr>
+          <td class="id-col">R4</td>
+          <td class="test-col">Networking tip</td>
+          <td class="steps-col">View networking section</td>
+          <td class="expected-col">SA-specific tip that references the user's specific career field</td>
+          <td class="pf-col"><div class="pf-box"></div></td>
+        </tr>
+        <tr>
+          <td class="id-col">R5</td>
+          <td class="test-col">Candidate avatars (recruiter view)</td>
+          <td class="steps-col">Enable recruiter mode → view talent list</td>
+          <td class="expected-col">Initials avatars shown with gradient backgrounds, no broken images</td>
+          <td class="pf-col"><div class="pf-box"></div></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 5. Branding Page -->
+  <div class="section">
+    <div class="section-title">5. Branding Page</div>
+    <table>
+      <thead>
+        <tr>
+          <th class="id-col">#</th>
+          <th class="test-col">Test Case</th>
+          <th class="steps-col">Steps</th>
+          <th class="expected-col">Expected Result</th>
+          <th class="pf-col">Pass / Fail</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="id-col">B1</td>
+          <td class="test-col">Validation — no profile</td>
+          <td class="steps-col">Log in (no profile) → go to /branding → click Generate</td>
+          <td class="expected-col">Error: "Please complete your profile first" — no API call</td>
+          <td class="pf-col"><div class="pf-box"></div></td>
+        </tr>
+        <tr>
+          <td class="id-col">B2</td>
+          <td class="test-col">Generate with profile</td>
+          <td class="steps-col">Complete onboarding → navigate to /branding → click Generate</td>
+          <td class="expected-col">Branding content generates and displays successfully</td>
+          <td class="pf-col"><div class="pf-box"></div></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 6. Legal Pages -->
+  <div class="section">
+    <div class="section-title">6. Legal Pages (/terms &amp; /privacy)</div>
+    <table>
+      <thead>
+        <tr>
+          <th class="id-col">#</th>
+          <th class="test-col">Test Case</th>
+          <th class="steps-col">Steps</th>
+          <th class="expected-col">Expected Result</th>
+          <th class="pf-col">Pass / Fail</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="id-col">LP1</td>
+          <td class="test-col">Terms page loads</td>
+          <td class="steps-col">Navigate directly to pathher.vercel.app/terms</td>
+          <td class="expected-col">Terms of Service page renders with full content</td>
+          <td class="pf-col"><div class="pf-box"></div></td>
+        </tr>
+        <tr>
+          <td class="id-col">LP2</td>
+          <td class="test-col">Privacy page loads</td>
+          <td class="steps-col">Navigate directly to pathher.vercel.app/privacy</td>
+          <td class="expected-col">Privacy Policy page renders with full content</td>
+          <td class="pf-col"><div class="pf-box"></div></td>
+        </tr>
+        <tr>
+          <td class="id-col">LP3</td>
+          <td class="test-col">Unknown route</td>
+          <td class="steps-col">Navigate to pathher.vercel.app/does-not-exist</td>
+          <td class="expected-col">Shows 404 page or redirects to home — no blank white screen</td>
+          <td class="pf-col"><div class="pf-box"></div></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 7. Performance & Cross-browser -->
+  <div class="section">
+    <div class="section-title">7. Performance &amp; Cross-Browser</div>
+    <table>
+      <thead>
+        <tr>
+          <th class="id-col">#</th>
+          <th class="test-col">Test Case</th>
+          <th class="steps-col">Steps</th>
+          <th class="expected-col">Expected Result</th>
+          <th class="pf-col">Pass / Fail</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="id-col">P1</td>
+          <td class="test-col">Mobile Safari (iOS)</td>
+          <td class="steps-col">Open pathher.vercel.app on iPhone Safari</td>
+          <td class="expected-col">No layout breaks, all buttons tappable, text readable</td>
+          <td class="pf-col"><div class="pf-box"></div></td>
+        </tr>
+        <tr>
+          <td class="id-col">P2</td>
+          <td class="test-col">Cold load time</td>
+          <td class="steps-col">Hard refresh (Ctrl+Shift+R) on landing page</td>
+          <td class="expected-col">Page is interactive within 3 seconds</td>
+          <td class="pf-col"><div class="pf-box"></div></td>
+        </tr>
+        <tr>
+          <td class="id-col">P3</td>
+          <td class="test-col">AI generation on slow network</td>
+          <td class="steps-col">Set Chrome DevTools to "Slow 3G" → submit onboarding</td>
+          <td class="expected-col">Spinner stays visible; either succeeds or shows graceful error — never hangs silently</td>
+          <td class="pf-col"><div class="pf-box"></div></td>
+        </tr>
+        <tr>
+          <td class="id-col">P4</td>
+          <td class="test-col">Firefox compatibility</td>
+          <td class="steps-col">Open and navigate full app on Firefox</td>
+          <td class="expected-col">All pages render correctly, no console errors</td>
+          <td class="pf-col"><div class="pf-box"></div></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div>Project: <strong>PathHer AI</strong> &nbsp;|&nbsp; URL: <strong>pathher.vercel.app</strong> &nbsp;|&nbsp; Stack: React · TypeScript · Firebase · Groq · Vercel</div>
+    <div>27 test cases across 7 sections</div>
+  </div>
+
+</body>
+</html>

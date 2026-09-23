@@ -6,3 +6,5 @@ coverage/
 *.log
 .env*
 !.env.example
+metadata.json
+DEPLOYMENT_GUIDE.md

@@ -1,25 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { KNOBZ } from '../constants';
-import { 
-  ArrowRight, 
-  Sparkles, 
-  Target, 
-  Users, 
-  ShieldCheck, 
-  GraduationCap,
+import {
+  ArrowRight,
+  Target,
   Wind,
   X,
   Heart,
   Globe,
   Zap
 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 
 export default function LandingPage() {
+  const { user, hasProfile } = useAuth();
+  const journeyPath = user && hasProfile ? '/recommendations' : '/onboarding';
   const [showReset, setShowReset] = useState(false);
   const [resetStep, setResetStep] = useState<'intro' | 'breathing' | 'complete'>('intro');
+  const phaseTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [breathCount, setBreathCount] = useState(0);
   const [breathPhase, setBreathPhase] = useState<'Inhale' | 'Hold' | 'Exhale'>('Inhale');
 
@@ -30,14 +30,14 @@ export default function LandingPage() {
       
       const runPhase = () => {
         setBreathPhase('Inhale');
-        setTimeout(() => setBreathPhase('Hold'), 4000);
-        setTimeout(() => setBreathPhase('Exhale'), 8000);
+        phaseTimers.current.push(setTimeout(() => setBreathPhase('Hold'), 4000));
+        phaseTimers.current.push(setTimeout(() => setBreathPhase('Exhale'), 8000));
       };
 
       runPhase();
       timer = setInterval(() => {
         setBreathCount((prev) => {
-          if (prev >= 2) { // 3 cycles (0, 1, 2)
+          if (prev >= 2) {
             setResetStep('complete');
             return 2;
           }
@@ -46,7 +46,11 @@ export default function LandingPage() {
         });
       }, cycleDuration);
     }
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      phaseTimers.current.forEach(clearTimeout);
+      phaseTimers.current = [];
+    };
   }, [showReset, resetStep]);
 
   const closeReset = () => {
@@ -92,14 +96,14 @@ export default function LandingPage() {
             className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-purple-100 rounded-full shadow-sm mx-auto"
           >
             <div className="flex -space-x-2">
-              {[1, 2, 3, 4].map((i) => (
-                <img 
+              {['NM', 'LK', 'ZT', 'AP'].map((initials, i) => (
+                <div
                   key={i}
-                  src={`https://picsum.photos/seed/woman${i}/100/100`}
-                  className="w-6 h-6 rounded-full border-2 border-white object-cover"
-                  alt="User"
-                  referrerPolicy="no-referrer"
-                />
+                  className="w-6 h-6 rounded-full border-2 border-white flex items-center justify-center text-white text-[8px] font-black"
+                  style={{ background: ['#9333ea', '#ec4899', '#6366f1', '#f43f5e'][i] }}
+                >
+                  {initials}
+                </div>
               ))}
             </div>
             <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">
@@ -118,7 +122,7 @@ export default function LandingPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center pt-4 sm:pt-8">
             <Link
-              to="/onboarding"
+              to={journeyPath}
               className="group relative px-7 sm:px-10 py-4 sm:py-5 bg-purple-600 text-white rounded-2xl font-bold text-base sm:text-xl shadow-xl shadow-purple-200 hover:shadow-purple-400 hover:scale-[1.02] transition-all flex items-center justify-center gap-3 overflow-hidden"
             >
               <span className="relative z-10">Start My Journey</span>
@@ -167,7 +171,7 @@ export default function LandingPage() {
             {
               icon: Target,
               title: "Discover suitable career paths",
-              desc: "Our AI matches your strengths and interests with high-growth industries in South Africa.",
+              desc: "We match your strengths and interests to a career path and the certificate that gets you there.",
               color: "bg-purple-50 text-purple-600",
               accent: "border-purple-100"
             },
@@ -234,13 +238,16 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="relative">
-            <div className="rounded-2xl sm:rounded-[2.5rem] md:rounded-[3rem] overflow-hidden shadow-2xl">
-              <img
-                src="https://picsum.photos/seed/sa-empower/800/800"
-                alt="South African Women Empowerment"
-                className="w-full h-auto object-cover"
-                referrerPolicy="no-referrer"
-              />
+            <div className="rounded-2xl sm:rounded-[2.5rem] md:rounded-[3rem] overflow-hidden shadow-2xl bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 aspect-square flex items-center justify-center">
+              <div className="text-white text-center space-y-4 p-12">
+                <div className="text-7xl font-black opacity-20">SA</div>
+                <p className="font-black text-2xl leading-tight">Built for young women<br/>across South Africa</p>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {['Johannesburg', 'Cape Town', 'Durban', 'Pretoria'].map(city => (
+                    <span key={city} className="px-3 py-1 bg-white/20 rounded-full text-xs font-bold">{city}</span>
+                  ))}
+                </div>
+              </div>
             </div>
             {/* Quote card — hidden on small screens to prevent overflow */}
             <div className="hidden sm:block absolute -bottom-6 -right-6 bg-white p-5 md:p-6 rounded-2xl md:rounded-3xl shadow-xl border border-purple-50 max-w-[180px] md:max-w-[200px]">
@@ -377,7 +384,7 @@ export default function LandingPage() {
                   </div>
                   <div className="flex flex-col sm:flex-row gap-4 justify-center">
                     <Link
-                      to="/onboarding"
+                      to={journeyPath}
                       onClick={closeReset}
                       className="px-8 py-4 bg-purple-600 text-white rounded-2xl font-bold text-base sm:text-xl hover:bg-purple-700 transition-all shadow-xl shadow-purple-100"
                     >
@@ -405,9 +412,9 @@ export default function LandingPage() {
           <span>&copy; 2026 Nobztech. All rights reserved.</span>
         </div>
         <div className="flex gap-5 sm:gap-8 font-medium">
-          <a href="#" className="hover:text-purple-600 transition-colors">Privacy Policy</a>
-          <a href="#" className="hover:text-purple-600 transition-colors">Terms of Service</a>
-          <a href="#" className="hover:text-purple-600 transition-colors">Contact Us</a>
+          <Link to="/privacy" className="hover:text-purple-600 transition-colors">Privacy Policy</Link>
+          <Link to="/terms" className="hover:text-purple-600 transition-colors">Terms of Service</Link>
+          <a href="mailto:support@pathher.app" className="hover:text-purple-600 transition-colors">Contact Us</a>
         </div>
       </footer>
     </div>

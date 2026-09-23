@@ -15,7 +15,7 @@ import {
   GraduationCap,
   RefreshCw,
 } from 'lucide-react';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
@@ -90,7 +90,7 @@ const OPTIONS = {
 
 export default function OnboardingPage() {
   const [currentStep, setCurrentStep] = useState(0);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const { user, setHasProfile } = useAuth();
   const [data, setData] = useState<OnboardingData>({
@@ -105,33 +105,49 @@ export default function OnboardingPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    setData(d => {
-      let next = { ...d };
-      try {
-        const raw = localStorage.getItem('pathher_profile');
-        if (raw) {
-          const saved = JSON.parse(raw);
-          if (saved.fullName) setIsEditing(true);
-          next = {
-            fullName: saved.fullName || next.fullName,
-            email: saved.email || next.email,
-            education: saved.education || next.education,
-            interests: saved.interests?.length > 0 ? saved.interests : next.interests,
-            strengths: saved.strengths?.length > 0 ? saved.strengths : next.strengths,
-            goals: saved.goals?.length > 0 ? saved.goals : next.goals,
-            workStyle: saved.workStyle?.length > 0 ? saved.workStyle : next.workStyle,
+    const load = async () => {
+      let saved: any = null;
+
+      // Firestore first — source of truth across devices
+      if (user) {
+        try {
+          const snap = await getDoc(doc(db, 'users', user.uid));
+          if (snap.exists() && snap.data()?.profile) {
+            saved = snap.data().profile;
+            localStorage.setItem('pathher_profile', JSON.stringify(saved));
+          }
+        } catch { /* fall through */ }
+      }
+
+      // Fallback to localStorage
+      if (!saved) {
+        try {
+          const raw = localStorage.getItem('pathher_profile');
+          if (raw) saved = JSON.parse(raw);
+        } catch { /* ignore */ }
+      }
+
+      setData(d => {
+        if (saved?.fullName) {
+          setIsEditing(true);
+          return {
+            fullName: saved.fullName || user?.displayName || '',
+            email: saved.email || user?.email || '',
+            education: saved.education || '',
+            interests: saved.interests?.length > 0 ? saved.interests : [],
+            strengths: saved.strengths?.length > 0 ? saved.strengths : [],
+            goals: saved.goals?.length > 0 ? saved.goals : [],
+            workStyle: saved.workStyle?.length > 0 ? saved.workStyle : [],
           };
         }
-      } catch { /* ignore parse errors */ }
-      if (user) {
-        next = {
-          ...next,
-          fullName: next.fullName || user.displayName || '',
-          email: next.email || user.email || '',
+        return {
+          ...d,
+          fullName: d.fullName || user?.displayName || '',
+          email: d.email || user?.email || '',
         };
-      }
-      return next;
-    });
+      });
+    };
+    load();
   }, [user]);
 
   const step = STEPS[currentStep];
@@ -151,10 +167,12 @@ export default function OnboardingPage() {
     if (currentStep < STEPS.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
-      setIsSaving(true);
-      // Always save to localStorage
+      // Show loading screen immediately — before any await — so there is never a
+      // blank gap between the form disappearing and the spinner appearing, and so
+      // setHasProfile(true) below cannot trigger a route redirect before we render.
+      setIsGenerating(true);
       localStorage.setItem('pathher_profile', JSON.stringify(data));
-      // Save to Firestore if logged in
+
       if (user) {
         try {
           await setDoc(doc(db, 'users', user.uid), { profile: data }, { merge: true });
@@ -163,7 +181,7 @@ export default function OnboardingPage() {
           console.error('Failed to save profile to Firestore:', e);
         }
       }
-      setIsSaving(false);
+
       navigate('/recommendations');
     }
   };
@@ -194,6 +212,23 @@ export default function OnboardingPage() {
   };
 
   const progress = ((currentStep + 1) / STEPS.length) * 100;
+
+  if (isGenerating) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-6">
+        <div className="relative">
+          <div className="w-20 h-20 border-4 border-purple-100 border-t-purple-600 rounded-full animate-spin" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Sparkles className="text-purple-600 animate-pulse" size={24} />
+          </div>
+        </div>
+        <div className="text-center space-y-2">
+          <h2 className="text-2xl font-bold">Saving Your Profile...</h2>
+          <p className="text-gray-500">Matching you to a career path and certificate.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto space-y-8 py-4">
@@ -363,22 +398,18 @@ export default function OnboardingPage() {
           </button>
           <button
             onClick={handleNext}
-            disabled={!isStepValid() || isSaving}
+            disabled={!isStepValid() || isGenerating}
             className={cn(
               "flex items-center gap-2 font-bold px-8 py-4 rounded-2xl transition-all shadow-lg",
-              !isStepValid() || isSaving
+              !isStepValid()
                 ? "bg-gray-100 text-gray-400 cursor-not-allowed shadow-none"
                 : "bg-gradient-to-r from-purple-600 to-pink-500 text-white shadow-purple-200 hover:shadow-purple-300"
             )}
           >
-            {isSaving ? (
-              <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-            ) : (
-              <>
-                {currentStep === STEPS.length - 1 ? 'See Results' : 'Next'}
-                <ChevronRight size={20} />
-              </>
-            )}
+            <>
+              {currentStep === STEPS.length - 1 ? 'See Results' : 'Next'}
+              <ChevronRight size={20} />
+            </>
           </button>
         </div>
       </div>
