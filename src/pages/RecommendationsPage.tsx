@@ -2,32 +2,44 @@ import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  Code, BarChart, Layout, Megaphone,
-  ArrowRight, CheckCircle2, Bookmark, Share2, Sparkles
+  Code, Briefcase, FileCheck, Bot,
+  ArrowRight, CheckCircle2, Bookmark, Share2, Sparkles, Award, ExternalLink
 } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { loadUserField, saveUserField } from '../lib/userdata';
 import { useAuth } from '../contexts/AuthContext';
-import { CAREER_PATHS } from '../constants';
+import { CAREER_PATHS, KNOBZ, getCertificate } from '../constants';
 import { CareerPath } from '../types';
 import { cn } from '../lib/utils';
 
-const iconMap: Record<string, any> = { Code, BarChart, Layout, Megaphone };
+const iconMap: Record<string, any> = { Code, Briefcase, FileCheck, Bot };
 
 const CAREER_KEYWORDS: Record<string, string[]> = {
-  'software-dev': ['Technology', 'Engineering', 'Problem Solving', 'Technical Skills', 'Analytical Thinking', 'Creativity', 'Innovation', 'Skill Mastery'],
-  'data-analyst': ['Technology', 'Science', 'Business', 'Finance', 'Analytical Thinking', 'Problem Solving', 'Organization', 'High Salary'],
-  'ux-designer': ['Technology', 'Arts & Design', 'Creativity', 'Empathy', 'Communication', 'Innovation', 'Helping Others'],
-  'digital-marketer': ['Marketing', 'Business', 'Communication', 'Creativity', 'Leadership', 'Social Work', 'Networking', 'Entrepreneurship'],
+  'ai-digital-professional': ['Business', 'Marketing', 'Finance', 'Healthcare', 'Education', 'Social Work', 'Law', 'Communication', 'Organization', 'Leadership', 'Teamwork', 'Empathy', 'Public Speaking', 'Adaptability', 'Stability', 'Work-Life Balance', 'Helping Others', 'Networking', 'Management', 'Social Impact'],
+  'junior-software-developer': ['Technology', 'Engineering', 'Arts & Design', 'Problem Solving', 'Technical Skills', 'Creativity', 'Skill Mastery', 'High Salary'],
+  'ai-enhanced-developer': ['Technology', 'Science', 'Writing', 'Analytical Thinking', 'Organization', 'Communication', 'Skill Mastery', 'Innovation'],
+  'ai-application-developer': ['Technology', 'Engineering', 'Science', 'Technical Skills', 'Problem Solving', 'Analytical Thinking', 'Innovation', 'Entrepreneurship', 'High Salary'],
 };
 
-function scoreCareerPath(path: CareerPath, profile: { interests: string[]; strengths: string[]; goals: string[] }): number {
+// Advanced certificates build on earlier ones, so weight them by how far along the person already is.
+const EDUCATION_BONUS: Record<string, Partial<Record<string, number>>> = {
+  'High School Student': { 'ai-digital-professional': 3, 'junior-software-developer': 1 },
+  'High School Graduate': { 'ai-digital-professional': 2, 'junior-software-developer': 2 },
+  'Undergraduate Student': { 'junior-software-developer': 2, 'ai-enhanced-developer': 1 },
+  'University Graduate': { 'ai-enhanced-developer': 2, 'ai-application-developer': 1 },
+  'Postgraduate Student': { 'ai-enhanced-developer': 1, 'ai-application-developer': 2 },
+  'Working Professional': { 'ai-digital-professional': 1, 'ai-application-developer': 2 },
+  'Career Changer': { 'ai-digital-professional': 2, 'junior-software-developer': 2 },
+};
+
+function scoreCareerPath(path: CareerPath, profile: { interests: string[]; strengths: string[]; goals: string[]; education?: string }): number {
   const keywords = CAREER_KEYWORDS[path.id] || [];
   let score = 0;
-  profile.interests.forEach(i => { if (keywords.includes(i)) score += 3; });
-  profile.strengths.forEach(s => { if (keywords.includes(s)) score += 2; });
-  profile.goals.forEach(g => { if (keywords.includes(g)) score += 1; });
+  (profile.interests || []).forEach(i => { if (keywords.includes(i)) score += 3; });
+  (profile.strengths || []).forEach(s => { if (keywords.includes(s)) score += 2; });
+  (profile.goals || []).forEach(g => { if (keywords.includes(g)) score += 1; });
+  score += EDUCATION_BONUS[profile.education || '']?.[path.id] || 0;
   return score;
 }
 
@@ -134,7 +146,7 @@ export default function RecommendationsPage() {
         </div>
         <div className="text-center space-y-2">
           <h2 className="text-2xl font-bold">Analyzing Your Profile...</h2>
-          <p className="text-gray-500">Finding the best South African career paths for you.</p>
+          <p className="text-gray-500">Matching you to a career path and certificate.</p>
         </div>
       </div>
     );
@@ -152,8 +164,8 @@ export default function RecommendationsPage() {
         <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold">Your Career Recommendations</h1>
         <p className="text-gray-600 max-w-2xl mx-auto text-sm md:text-base">
           {interests.length > 0
-            ? `Based on your interests in ${interests.slice(0, 2).join(' and ')}, ${profileName}, here are ${recommendations.length} high-growth paths matched for you in South Africa.`
-            : `We've identified ${recommendations.length} high-growth paths in South Africa tailored to your profile.`}
+            ? `Based on your interests in ${interests.slice(0, 2).join(' and ')}, ${profileName}, here are ${recommendations.length} paths matched to you. Each one comes with a certificate you can earn on ${KNOBZ.name}.`
+            : `Here are ${recommendations.length} paths matched to your profile. Each one comes with a certificate you can earn on ${KNOBZ.name}.`}
         </p>
       </div>
 
@@ -161,6 +173,7 @@ export default function RecommendationsPage() {
         {recommendations.map((path, index) => {
           const Icon = iconMap[path.icon] || Code;
           const isSaved = saved.includes(path.id);
+          const cert = getCertificate(path.certificate);
           return (
             <motion.div
               key={path.id}
@@ -180,7 +193,9 @@ export default function RecommendationsPage() {
                   <div className="flex justify-between items-start">
                     <div className="space-y-1">
                       <h2 className="text-xl md:text-2xl font-bold group-hover:text-purple-700 transition-colors">{path.title}</h2>
-                      <p className="text-purple-600 font-medium text-xs md:text-sm">High Demand in SA</p>
+                      <p className="text-purple-600 font-medium text-xs md:text-sm">
+                        {index === 0 ? 'Your best match' : 'Also a strong match'}
+                      </p>
                     </div>
                     <div className="flex gap-2">
                       <button
@@ -221,23 +236,40 @@ export default function RecommendationsPage() {
                         </div>
                       </div>
                       <div className="space-y-3">
-                        <h3 className="font-bold text-gray-900">SA Opportunities</h3>
-                        <ul className="space-y-1">
-                          {path.saExamples.map(ex => (
-                            <li key={ex} className="text-sm text-gray-600 flex items-center gap-2">
-                              <div className="w-1.5 h-1.5 rounded-full bg-pink-400"></div>
-                              {ex}
-                            </li>
-                          ))}
-                        </ul>
+                        <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                          <Award size={18} className="text-pink-500" />
+                          Your certificate
+                        </h3>
+                        <div className="space-y-1">
+                          <p className="text-sm font-bold text-gray-800">
+                            Certificate {cert.number}: {cert.title}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {cert.level} · {cert.modules} modules on {KNOBZ.name}
+                          </p>
+                          {cert.number > 1 && (
+                            <p className="text-xs text-gray-500 leading-relaxed">
+                              Certificates unlock in order, so you'll start with Certificate 1 and work up to this one.
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
 
                   <div className="pt-4 flex flex-wrap gap-4">
+                    <a
+                      href={KNOBZ.signupUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-6 py-3 bg-purple-600 text-white rounded-xl font-bold text-sm hover:bg-purple-700 transition-all flex items-center gap-2"
+                    >
+                      Sign up on {KNOBZ.name}
+                      <ExternalLink size={16} />
+                    </a>
                     <Link
                       to={`/opportunities?path=${path.id}`}
-                      className="px-6 py-3 bg-purple-600 text-white rounded-xl font-bold text-sm hover:bg-purple-700 transition-all flex items-center gap-2"
+                      className="px-6 py-3 bg-white text-purple-600 border border-purple-100 rounded-xl font-bold text-sm hover:bg-purple-50 transition-all flex items-center gap-2"
                     >
                       View Learning Path
                       <ArrowRight size={16} />
@@ -288,7 +320,7 @@ export default function RecommendationsPage() {
                       to={`/opportunities?path=${path.id}`}
                       className="text-purple-600 font-bold text-sm flex items-center gap-1 hover:gap-2 transition-all"
                     >
-                      Explore resources <ArrowRight size={14} />
+                      See certificate <ArrowRight size={14} />
                     </Link>
                   </div>
                 );

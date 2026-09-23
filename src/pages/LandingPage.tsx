@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
+import { KNOBZ } from '../constants';
 import { 
   ArrowRight, 
   Sparkles, 
@@ -102,7 +103,7 @@ export default function LandingPage() {
               ))}
             </div>
             <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">
-              Join 5,000+ young women in SA
+              Built for young women in SA
             </span>
           </motion.div>
 
@@ -140,14 +141,17 @@ export default function LandingPage() {
       {/* Partners Section */}
       <section className="py-10 md:py-12 border-y border-purple-50">
         <p className="text-center text-xs font-bold text-gray-400 uppercase tracking-[0.2em] mb-6 md:mb-8">
-          Empowering women with partners across SA
+          Learning partner
         </p>
-        <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16 lg:gap-24 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
-          {['TechSA', 'FutureLeaders', 'EmpowerHer', 'SAInnovate', 'WomenInTech'].map((name) => (
-            <div key={name} className="font-black text-lg sm:text-xl md:text-2xl text-gray-400 tracking-tighter">
-              {name}
-            </div>
-          ))}
+        <div className="flex justify-center">
+          <a
+            href={KNOBZ.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-black text-lg sm:text-xl md:text-2xl text-gray-400 hover:text-purple-600 tracking-tighter transition-colors"
+          >
+            {KNOBZ.name}
+          </a>
         </div>
       </section>
 
@@ -176,8 +180,8 @@ export default function LandingPage() {
             },
             {
               icon: Globe,
-              title: "Unlock real opportunities",
-              desc: "Connect with bursaries, learnerships, and jobs specifically for young female talent.",
+              title: "Earn verified certificates",
+              desc: "Get referred to the KnobzToLearn certificate that fits your path and prove your skills to employers.",
               color: "bg-orange-50 text-orange-600",
               accent: "border-orange-100"
             }
@@ -216,8 +220,8 @@ export default function LandingPage() {
             </p>
             <div className="space-y-3 md:space-y-4">
               {[
-                "Localized funding & bursary matching",
-                "Partnerships with SA's top tech employers",
+                "Career path matching based on your strengths",
+                "Verified certificates through KnobzToLearn",
                 "Community-driven mentorship network"
               ].map((item, i) => (
                 <div key={i} className="flex items-center gap-3">

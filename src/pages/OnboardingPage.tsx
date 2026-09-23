@@ -391,7 +391,7 @@ export default function OnboardingPage() {
         <div className="space-y-1">
           <h4 className="font-bold text-indigo-900">Pro Tip</h4>
           <p className="text-indigo-700 text-sm leading-relaxed">
-            Be as honest as possible! Our AI uses these answers to find the best South African career opportunities tailored specifically for you.
+            Be as honest as possible! We use these answers to match you to a career path and the KnobzToLearn certificate that gets you there.
           </p>
         </div>
       </div>

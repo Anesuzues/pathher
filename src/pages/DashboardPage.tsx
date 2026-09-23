@@ -1,81 +1,14 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell,
-} from 'recharts';
-import {
-  Users, TrendingUp, UserCheck, Clock, Search, Download, MoreHorizontal,
-  ArrowUpRight, ArrowDownRight, X, Plus, ChevronDown, Briefcase, XCircle, LayoutDashboard,
+  Download, X, Plus, ChevronDown, Briefcase, XCircle, LayoutDashboard, UserCheck, Users,
 } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
 import { saveRole, loadUserRoles, closeRole, loadUserField, saveUserField, PostedRole } from '../lib/userdata';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
-import { callGeminiJSON } from '../lib/gemini';
-
-const AVATAR_COLORS = [
-  'from-purple-500 to-pink-400',
-  'from-blue-500 to-cyan-400',
-  'from-emerald-500 to-teal-400',
-  'from-orange-500 to-amber-400',
-  'from-rose-500 to-pink-400',
-  'from-indigo-500 to-violet-400',
-];
-
-function getInitials(name: string): string {
-  return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
-}
-
-function getAvatarColor(name: string): string {
-  return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
-}
-
-type StatData = { label: string; value: string; change: string; trend: 'up' | 'down' };
-type Candidate = { name: string; path: string; readiness: string; status: string };
-
-const COLORS = ['#9333ea', '#ec4899', '#6366f1', '#f43f5e'];
-const STAT_ICONS = [Users, TrendingUp, UserCheck, Clock];
-
-const FALLBACK_STATS: StatData[] = [
-  { label: 'Total Talent', value: '15,420', change: '+12.5%', trend: 'up' },
-  { label: 'Active Roles', value: '1,245', change: '+5.2%', trend: 'up' },
-  { label: 'Hired This Month', value: '384', change: '-2.1%', trend: 'down' },
-  { label: 'Avg. Time to Hire', value: '18 Days', change: '+1.4%', trend: 'up' },
-];
-
-const FALLBACK_CHART = [
-  { name: 'Jan', value: 400 },
-  { name: 'Feb', value: 300 },
-  { name: 'Mar', value: 600 },
-  { name: 'Apr', value: 800 },
-  { name: 'May', value: 500 },
-  { name: 'Jun', value: 900 },
-];
-
-const FALLBACK_PIE = [
-  { name: 'Tech', value: 45 },
-  { name: 'Business', value: 25 },
-  { name: 'Creative', value: 20 },
-  { name: 'Other', value: 10 },
-];
-
-const FALLBACK_CANDIDATES: Candidate[] = [
-  { name: 'Nompumelelo D.', path: 'Software Developer', readiness: '95%', status: 'Available' },
-  { name: 'Lerato M.', path: 'Data Analyst', readiness: '88%', status: 'Interviewing' },
-  { name: 'Sarah K.', path: 'UX Designer', readiness: '92%', status: 'Available' },
-  { name: 'Zanele T.', path: 'Digital Marketing', readiness: '84%', status: 'Hired' },
-  { name: 'Thandi P.', path: 'Software Developer', readiness: '78%', status: 'Available' },
-  { name: 'Nomsa B.', path: 'Data Analyst', readiness: '91%', status: 'Interviewing' },
-  { name: 'Palesa M.', path: 'UX Designer', readiness: '87%', status: 'Available' },
-  { name: 'Aisha K.', path: 'Digital Marketing', readiness: '93%', status: 'Hired' },
-];
-
-const DASHBOARD_PROMPT = `Return ONLY valid JSON, no markdown. Generate data for a South African women-in-tech platform: {"stats":[{"label":"Total Talent","value":"15,420","change":"+12.5%","trend":"up"},{"label":"Active Roles","value":"1,245","change":"+5.2%","trend":"up"},{"label":"Hired This Month","value":"384","change":"-2.1%","trend":"down"},{"label":"Avg. Time to Hire","value":"18 Days","change":"+1.4%","trend":"up"}],"chartData":[{"name":"Jan","value":400},{"name":"Feb","value":300},{"name":"Mar","value":600},{"name":"Apr","value":800},{"name":"May","value":500},{"name":"Jun","value":900}],"pieData":[{"name":"Tech","value":45},{"name":"Business","value":25},{"name":"Creative","value":20},{"name":"Other","value":10}],"candidates":[{"name":"Nompumelelo D.","path":"Software Developer","readiness":"95%","status":"Available"},{"name":"Lerato M.","path":"Data Analyst","readiness":"88%","status":"Interviewing"},{"name":"Sarah K.","path":"UX Designer","readiness":"92%","status":"Available"},{"name":"Zanele T.","path":"Digital Marketing","readiness":"84%","status":"Hired"},{"name":"Thandi P.","path":"Software Developer","readiness":"78%","status":"Available"},{"name":"Nomsa B.","path":"Data Analyst","readiness":"91%","status":"Interviewing"},{"name":"Palesa M.","path":"UX Designer","readiness":"87%","status":"Available"},{"name":"Aisha K.","path":"Digital Marketing","readiness":"93%","status":"Hired"}]} Vary numbers and South African female names each time.`;
 
 export default function DashboardPage() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showAll, setShowAll] = useState(false);
   const [showPostModal, setShowPostModal] = useState(false);
   const [jobTitle, setJobTitle] = useState('');
   const [jobType, setJobType] = useState('Full-time');
@@ -84,32 +17,7 @@ export default function DashboardPage() {
   const [isPostingRole, setIsPostingRole] = useState(false);
   const [isRecruiter, setIsRecruiter] = useState(false);
   const [roleLoading, setRoleLoading] = useState(true);
-  const [dashStats, setDashStats] = useState<StatData[]>(FALLBACK_STATS);
-  const [aiChartData, setAiChartData] = useState(FALLBACK_CHART);
-  const [aiPieData, setAiPieData] = useState(FALLBACK_PIE);
-  const [candidates, setCandidates] = useState<Candidate[]>(FALLBACK_CANDIDATES);
   const { user } = useAuth();
-
-  const loadAIData = async () => {
-    const key = 'pathher_ai_dashboard';
-    try {
-      const cached = sessionStorage.getItem(key);
-      if (cached) {
-        const d = JSON.parse(cached);
-        if (d.stats) setDashStats(d.stats);
-        if (d.chartData) setAiChartData(d.chartData);
-        if (d.pieData) setAiPieData(d.pieData);
-        if (d.candidates) setCandidates(d.candidates);
-        return;
-      }
-    } catch {}
-    const d = await callGeminiJSON<Record<string, unknown>>(DASHBOARD_PROMPT, {});
-    if (d.stats) setDashStats(d.stats as StatData[]);
-    if (d.chartData) setAiChartData(d.chartData as typeof FALLBACK_CHART);
-    if (d.pieData) setAiPieData(d.pieData as typeof FALLBACK_PIE);
-    if (d.candidates) setCandidates(d.candidates as Candidate[]);
-    if (Object.keys(d).length) sessionStorage.setItem(key, JSON.stringify(d));
-  };
 
   useEffect(() => {
     if (!user) return;
@@ -120,15 +28,8 @@ export default function DashboardPage() {
       setIsRecruiter(recruiter);
       setPostedRoles(roles.sort((a, b) => b.createdAt.seconds - a.createdAt.seconds));
       setRoleLoading(false);
-      if (recruiter) loadAIData();
     });
   }, [user]);
-
-  const visibleCandidates = showAll ? candidates : candidates.slice(0, 4);
-  const filteredCandidates = visibleCandidates.filter(c => {
-    const q = searchQuery.toLowerCase();
-    return q === '' || c.name.toLowerCase().includes(q) || c.path.toLowerCase().includes(q) || c.status.toLowerCase().includes(q);
-  });
 
   if (roleLoading) {
     return (
@@ -167,15 +68,18 @@ export default function DashboardPage() {
     );
   }
 
+  const formatDate = (ts: Timestamp) =>
+    ts.toDate().toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
+
   const handleExportCSV = () => {
-    const headers = ['Name', 'Recommended Path', 'Readiness', 'Status'];
-    const rows = candidates.map(c => [c.name, c.path, c.readiness, c.status]);
-    const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
+    const headers = ['Title', 'Type', 'Status', 'Posted'];
+    const rows = postedRoles.map(r => [r.title, r.type, r.status, formatDate(r.createdAt)]);
+    const csv = [headers, ...rows].map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'pathher-talent-report.csv';
+    a.download = 'pathher-roles.csv';
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -219,9 +123,6 @@ export default function DashboardPage() {
     setPostedRoles(prev => prev.map(r => r.id === roleId ? { ...r, status: 'closed' } : r));
   };
 
-  const formatDate = (ts: Timestamp) =>
-    ts.toDate().toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
-
   return (
     <div className="space-y-10 pb-12">
       {/* Post Role Modal */}
@@ -247,7 +148,7 @@ export default function DashboardPage() {
                 <>
                   <div className="space-y-2">
                     <h2 className="text-2xl font-bold">Post a New Role</h2>
-                    <p className="text-gray-500 text-sm">Reach thousands of qualified young women in SA.</p>
+                    <p className="text-gray-500 text-sm">Share an opening with women on the PathHer network.</p>
                   </div>
                   <div className="space-y-4">
                     <div className="space-y-2">
@@ -304,15 +205,16 @@ export default function DashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 md:gap-6">
         <div className="space-y-1">
           <h1 className="text-2xl md:text-3xl font-bold">Recruiter Dashboard</h1>
-          <p className="text-gray-500 text-sm md:text-base">Welcome back, {user?.displayName?.split(' ')[0] || 'there'}. Here's what's happening today.</p>
+          <p className="text-gray-500 text-sm md:text-base">Welcome back, {user?.displayName?.split(' ')[0] || 'there'}. Manage the roles you've posted.</p>
         </div>
         <div className="flex flex-wrap gap-3">
           <button
             onClick={handleExportCSV}
-            className="px-4 py-2 bg-white border border-purple-100 rounded-xl text-sm font-bold text-gray-600 hover:bg-purple-50 transition-all flex items-center gap-2"
+            disabled={postedRoles.length === 0}
+            className="px-4 py-2 bg-white border border-purple-100 rounded-xl text-sm font-bold text-gray-600 hover:bg-purple-50 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download size={18} />
-            Export Report
+            Export Roles
           </button>
           <button
             onClick={() => setShowPostModal(true)}
@@ -324,86 +226,16 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {dashStats.map((stat, i) => {
-          const Icon = STAT_ICONS[i];
-          return (
-          <div key={i} className="bg-white p-6 rounded-3xl border border-purple-50 shadow-sm space-y-4">
-            <div className="flex justify-between items-start">
-              <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center">
-                <Icon size={24} />
-              </div>
-              <div className={cn(
-                'flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full',
-                stat.trend === 'up' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
-              )}>
-                {stat.trend === 'up' ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-                {stat.change}
-              </div>
-            </div>
-            <div>
-              <p className="text-gray-500 text-xs font-bold uppercase tracking-wider">{stat.label}</p>
-              <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-            </div>
-          </div>
-          );
-        })}
-      </div>
-
-      {/* Charts */}
-      <div className="grid lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border border-purple-50 shadow-sm space-y-6 md:space-y-8">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg md:text-xl font-bold">Talent Growth</h2>
-            <select className="bg-purple-50 border-none rounded-lg text-xs font-bold text-purple-700 px-3 py-1 focus:ring-0">
-              <option>Last 6 Months</option>
-              <option>Last Year</option>
-            </select>
-          </div>
-          <div className="h-[220px] sm:h-[260px] md:h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={aiChartData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#9ca3af' }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#9ca3af' }} />
-                <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} cursor={{ fill: '#f5f3ff' }} />
-                <Bar dataKey="value" fill="#9333ea" radius={[6, 6, 0, 0]} barSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border border-purple-50 shadow-sm space-y-6 md:space-y-8">
-          <h2 className="text-lg md:text-xl font-bold">Career Interests</h2>
-          <div className="h-[200px] sm:h-[230px] md:h-[250px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={aiPieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                  {aiPieData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="space-y-3">
-            {aiPieData.map((item, i) => (
-              <div key={i} className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[i] }}></div>
-                  <span className="text-gray-600">{item.name}</span>
-                </div>
-                <span className="font-bold">{item.value}%</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
       {/* Posted Roles */}
-      {postedRoles.length > 0 && (
+      {postedRoles.length === 0 ? (
+        <div className="bg-white rounded-[2.5rem] border border-purple-50 shadow-sm p-10 text-center space-y-3">
+          <div className="w-14 h-14 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center mx-auto">
+            <Briefcase size={28} />
+          </div>
+          <h2 className="text-xl font-bold">No roles posted yet</h2>
+          <p className="text-gray-500 text-sm">Post your first role to start reaching candidates.</p>
+        </div>
+      ) : (
         <div className="bg-white rounded-[2.5rem] border border-purple-50 shadow-sm overflow-hidden">
           <div className="p-8 border-b border-purple-50 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -445,91 +277,15 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Talent Table */}
-      <div className="bg-white rounded-[2.5rem] border border-purple-50 shadow-sm overflow-hidden">
-        <div className="p-8 border-b border-purple-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <h2 className="text-xl font-bold">Top Talent Matches</h2>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search talent..."
-              className="pl-10 pr-4 py-2 bg-purple-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-purple-500 w-full sm:w-64 outline-none"
-            />
-            {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
-                <X size={14} />
-              </button>
-            )}
-          </div>
+      {/* Talent */}
+      <div className="bg-white rounded-[2.5rem] border border-purple-50 shadow-sm p-10 text-center space-y-3">
+        <div className="w-14 h-14 bg-pink-50 text-pink-600 rounded-2xl flex items-center justify-center mx-auto">
+          <Users size={28} />
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-purple-50/50 text-gray-400 text-[10px] font-bold uppercase tracking-wider">
-                <th className="px-8 py-4">Candidate</th>
-                <th className="px-8 py-4">Recommended Path</th>
-                <th className="px-8 py-4">Readiness</th>
-                <th className="px-8 py-4">Status</th>
-                <th className="px-8 py-4"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-purple-50">
-              {filteredCandidates.length > 0 ? filteredCandidates.map((talent, i) => (
-                <tr key={i} className="hover:bg-purple-50/30 transition-colors group">
-                  <td className="px-8 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${getAvatarColor(talent.name)} flex items-center justify-center text-white text-xs font-black shrink-0`}>
-                        {getInitials(talent.name)}
-                      </div>
-                      <span className="font-bold text-gray-900">{talent.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-8 py-4 text-sm text-gray-600">{talent.path}</td>
-                  <td className="px-8 py-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-purple-600" style={{ width: talent.readiness }}></div>
-                      </div>
-                      <span className="text-xs font-bold text-purple-700">{talent.readiness}</span>
-                    </div>
-                  </td>
-                  <td className="px-8 py-4">
-                    <span className={cn(
-                      'px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider',
-                      talent.status === 'Available' ? 'bg-green-50 text-green-600' :
-                      talent.status === 'Interviewing' ? 'bg-blue-50 text-blue-600' :
-                      'bg-gray-50 text-gray-400'
-                    )}>
-                      {talent.status}
-                    </span>
-                  </td>
-                  <td className="px-8 py-4 text-right">
-                    <button className="p-2 text-gray-400 hover:text-purple-600 transition-colors">
-                      <MoreHorizontal size={20} />
-                    </button>
-                  </td>
-                </tr>
-              )) : (
-                <tr>
-                  <td colSpan={5} className="px-8 py-12 text-center text-gray-400 font-medium">
-                    No candidates match your search.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        <div className="p-6 bg-purple-50/50 text-center">
-          <button
-            onClick={() => setShowAll(!showAll)}
-            className="text-purple-600 font-bold text-sm hover:underline"
-          >
-            {showAll ? 'Show Less' : `View All Candidates (${candidates.length})`}
-          </button>
-        </div>
+        <h2 className="text-xl font-bold">Talent Matches</h2>
+        <p className="text-gray-500 text-sm max-w-md mx-auto">
+          Candidates will appear here as women complete their assessment and earn certificates. There are no matches to show yet.
+        </p>
       </div>
     </div>
   );

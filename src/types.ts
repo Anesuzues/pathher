@@ -6,22 +6,20 @@ export interface UserProfile {
   workStyle: string;
 }
 
+export interface KnobzCertificate {
+  number: 1 | 2 | 3 | 4;
+  title: string;
+  subtitle: string;
+  description: string;
+  level: 'Beginner' | 'Intermediate' | 'Advanced';
+  modules: number;
+}
+
 export interface CareerPath {
   id: string;
   title: string;
   whyItFits: string;
   skillsNeeded: string[];
-  learningResources: { title: string; url: string }[];
-  saExamples: string[];
+  certificate: KnobzCertificate['number']; // KnobzToLearn certificate that qualifies you for this path
   icon: string;
-}
-
-export interface Opportunity {
-  id: string;
-  title: string;
-  provider: string;
-  type: 'Bursary' | 'Internship' | 'Learnership' | 'Graduate Program';
-  description: string;
-  link: string;
-  careerPaths?: string[]; // career path IDs this opportunity is relevant to
 }
