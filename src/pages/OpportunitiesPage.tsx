@@ -1,7 +1,7 @@
 import { motion } from 'motion/react';
 import { useSearchParams } from 'react-router-dom';
-import { ExternalLink, Award, BookOpen, Lock, CheckCircle2, X } from 'lucide-react';
-import { KNOBZ, KNOBZ_CERTIFICATES, CAREER_PATHS } from '../constants';
+import { ExternalLink, Award, BookOpen, Lock, CheckCircle2, X, Calendar, GraduationCap } from 'lucide-react';
+import { KNOBZ, KNOBZ_CERTIFICATES, CAREER_PATHS, MELSOFT, MELSOFT_PROGRAMMES } from '../constants';
 import { cn } from '../lib/utils';
 
 function getRecommendedPathId(): string {
@@ -19,13 +19,18 @@ export default function OpportunitiesPage() {
   const pathParam = searchParams.get('path') || '';
   const activePath = CAREER_PATHS.find(p => p.id === (pathParam || getRecommendedPathId()));
   const targetCert = activePath?.certificate;
+  const matchesPath = (careerPaths: string[]) => !!activePath && careerPaths.includes(activePath.id);
+  // Programmes that suit the user's path come first; the rest keep their original order.
+  const melsoftProgrammes = [...MELSOFT_PROGRAMMES].sort(
+    (a, b) => Number(matchesPath(b.careerPaths)) - Number(matchesPath(a.careerPaths))
+  );
 
   return (
     <div className="space-y-10 pb-12">
       <div className="space-y-4">
         <h1 className="text-4xl font-bold">Learning & Certificates</h1>
         <p className="text-gray-600 max-w-2xl">
-          PathHer has partnered with {KNOBZ.name} so you can build the skills for your career path and earn a verified certificate to show employers.
+          Build your skills and earn a verified certificate on {KNOBZ.name}, then go further with an accredited programme from {MELSOFT.name}.
         </p>
       </div>
 
@@ -153,6 +158,86 @@ export default function OpportunitiesPage() {
           Start Certificate 1 on {KNOBZ.name}
           <ExternalLink size={16} />
         </a>
+      </section>
+
+      {/* Melsoft Academy */}
+      <section className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+          <div className="space-y-1">
+            <h2 className="text-2xl font-bold">Accredited Programmes from {MELSOFT.name}</h2>
+            <p className="text-gray-500 text-sm">
+              Full qualifications and bootcamps for when you're ready to go further.
+            </p>
+          </div>
+          <a
+            href={MELSOFT.fundingUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-purple-600 font-bold text-sm flex items-center gap-1 hover:gap-2 transition-all shrink-0"
+          >
+            Funding options <ExternalLink size={14} />
+          </a>
+        </div>
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {melsoftProgrammes.map((prog, i) => {
+            const isMatch = matchesPath(prog.careerPaths);
+            return (
+              <motion.div
+                key={prog.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.04 }}
+                className={cn(
+                  'bg-white rounded-3xl p-6 border shadow-sm hover:shadow-md transition-all flex flex-col',
+                  isMatch ? 'border-purple-400 ring-2 ring-purple-100' : 'border-purple-50'
+                )}
+              >
+                <div className="flex-1 space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={cn(
+                      'px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider',
+                      prog.track === 'Accredited' ? 'bg-green-50 text-green-600' : 'bg-blue-50 text-blue-600'
+                    )}>
+                      {prog.track}
+                    </span>
+                    {isMatch && (
+                      <span className="px-2 py-0.5 rounded-full bg-purple-600 text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                        <Award size={12} /> Matches your path
+                      </span>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-bold text-gray-900 leading-tight">{prog.title}</h3>
+                    <p className="text-sm text-purple-600 font-medium">{MELSOFT.name}</p>
+                  </div>
+                  <p className="text-gray-600 text-sm leading-relaxed">{prog.description}</p>
+                </div>
+
+                <div className="pt-4 mt-4 border-t border-purple-50 space-y-3">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400">
+                    <span className="flex items-center gap-1"><Calendar size={14} /> {prog.duration}</span>
+                    {prog.accreditation && (
+                      <span className="flex items-center gap-1"><GraduationCap size={14} /> {prog.accreditation}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-gray-900">{prog.cost}</span>
+                    <a
+                      href={MELSOFT.programmeUrl(prog.id)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-purple-600 font-bold text-sm flex items-center gap-1 hover:gap-2 transition-all"
+                    >
+                      View Programme
+                      <ExternalLink size={14} />
+                    </a>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
       </section>
     </div>
   );
