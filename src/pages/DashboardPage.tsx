@@ -16,6 +16,9 @@ export default function DashboardPage() {
   const [jobPosted, setJobPosted] = useState(false);
   const [postedRoles, setPostedRoles] = useState<PostedRole[]>([]);
   const [isPostingRole, setIsPostingRole] = useState(false);
+  const [roleError, setRoleError] = useState('');
+  const [closeError, setCloseError] = useState('');
+  const [requestError, setRequestError] = useState('');
   const [isRecruiter, setIsRecruiter] = useState(false);
   const [recruiterRequested, setRecruiterRequested] = useState(false);
   const { user } = useAuth();
@@ -53,11 +56,13 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={async () => {
-              setRecruiterRequested(true);
-              if (user) {
-                try {
-                  await setDoc(doc(db, 'users', user.uid), { recruiterRequested: true }, { merge: true });
-                } catch { /* non-fatal */ }
+              if (!user) return;
+              setRequestError('');
+              try {
+                await setDoc(doc(db, 'users', user.uid), { recruiterRequested: true }, { merge: true });
+                setRecruiterRequested(true);
+              } catch {
+                setRequestError("We couldn't send your request. Please try again.");
               }
             }}
             className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-2xl font-bold hover:shadow-lg hover:shadow-purple-200 transition-all"
@@ -65,6 +70,7 @@ export default function DashboardPage() {
             Request Recruiter Access
           </button>
         )}
+        {requestError && <p className="text-sm text-red-600 font-medium">{requestError}</p>}
       </div>
     );
   }
@@ -87,6 +93,7 @@ export default function DashboardPage() {
 
   const handlePostRole = async () => {
     if (!jobTitle.trim() || !user) return;
+    setRoleError('');
     setIsPostingRole(true);
     const displayName = user.displayName || user.email?.split('@')[0] || 'Admin';
     const id = await saveRole({
@@ -97,19 +104,21 @@ export default function DashboardPage() {
       createdAt: Timestamp.now(),
       status: 'active',
     });
-    if (id) {
-      const newRole: PostedRole = {
-        id,
-        title: jobTitle.trim(),
-        type: jobType,
-        postedBy: user.uid,
-        postedByName: displayName,
-        createdAt: Timestamp.now(),
-        status: 'active',
-      };
-      setPostedRoles(prev => [newRole, ...prev]);
-    }
     setIsPostingRole(false);
+    if (!id) {
+      setRoleError("We couldn't post this role. Please check your connection and try again.");
+      return;
+    }
+    const newRole: PostedRole = {
+      id,
+      title: jobTitle.trim(),
+      type: jobType,
+      postedBy: user.uid,
+      postedByName: displayName,
+      createdAt: Timestamp.now(),
+      status: 'active',
+    };
+    setPostedRoles(prev => [newRole, ...prev]);
     setJobPosted(true);
     setTimeout(() => {
       setShowPostModal(false);
@@ -120,7 +129,11 @@ export default function DashboardPage() {
   };
 
   const handleCloseRole = async (roleId: string) => {
-    await closeRole(roleId);
+    setCloseError('');
+    if (!(await closeRole(roleId))) {
+      setCloseError("We couldn't close that role. Please try again.");
+      return;
+    }
     setPostedRoles(prev => prev.map(r => r.id === roleId ? { ...r, status: 'closed' } : r));
   };
 
@@ -179,6 +192,9 @@ export default function DashboardPage() {
                       </div>
                     </div>
                   </div>
+                  {roleError && (
+                    <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">{roleError}</p>
+                  )}
                   <button
                     onClick={handlePostRole}
                     disabled={!jobTitle.trim() || isPostingRole}
@@ -248,6 +264,9 @@ export default function DashboardPage() {
             </div>
             <span className="text-sm text-gray-400 font-medium">{postedRoles.filter(r => r.status === 'active').length} active</span>
           </div>
+          {closeError && (
+            <p className="mx-4 md:mx-8 mt-4 text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">{closeError}</p>
+          )}
           <div className="divide-y divide-purple-50">
             {postedRoles.map(role => (
               <div key={role.id} className="px-4 md:px-8 py-4 md:py-5 flex items-start sm:items-center justify-between gap-4">

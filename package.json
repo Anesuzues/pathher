@@ -9,14 +9,13 @@
     "preview": "vite preview",
     "clean": "node -e \"require('fs').rmSync('./dist',{recursive:true,force:true})\"",
     "lint": "tsc --noEmit",
-    "test": "echo \"No test suite configured yet\" && exit 0"
+    "test": "tsx --test tests/lib.test.ts"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
     "clsx": "^2.1.1",
     "firebase": "^12.13.0",
-    "groq-sdk": "^1.2.1",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "react": "^19.0.0",

@@ -11,12 +11,14 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../lib/firebase';
+import { readJSON } from '../lib/utils';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   hasProfile: boolean;
   setHasProfile: (v: boolean) => void;
+  isRecruiter: boolean;
   signUp: (email: string, password: string, name: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
@@ -29,20 +31,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasProfile, setHasProfile] = useState(false);
+  const [isRecruiter, setIsRecruiter] = useState(false);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
+      // Stay in the loading state until the profile check finishes, so routes
+      // never act on a signed-in user with a stale hasProfile value.
+      if (u) setLoading(true);
       setUser(u);
       if (u) {
         try {
           const snap = await getDoc(doc(db, 'users', u.uid));
           setHasProfile(snap.exists() && !!snap.data()?.profile);
+          setIsRecruiter(snap.exists() && snap.data()?.isRecruiter === true);
         } catch {
-          // Firestore unavailable or rules not set up — treat as no profile
-          setHasProfile(false);
+          // Firestore unavailable — fall back to the locally cached profile
+          setHasProfile(!!readJSON<unknown>('pathher_profile', null));
+          setIsRecruiter(false);
         }
       } else {
         setHasProfile(false);
+        setIsRecruiter(false);
       }
       setLoading(false);
     });
@@ -52,7 +61,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = async (email: string, password: string, name: string) => {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(cred.user, { displayName: name });
-    await sendEmailVerification(cred.user);
+    try {
+      await sendEmailVerification(cred.user);
+    } catch (e) {
+      // The account exists at this point; the banner offers a resend.
+      console.error('Failed to send verification email:', e);
+    }
   };
 
   const signIn = async (email: string, password: string) => {
@@ -66,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     await firebaseSignOut(auth);
     const keys = [
-      'pathher_profile', 'saved_recommendations', 'saved_opportunities',
+      'pathher_profile', 'saved_recommendations', 'saved_opportunities', // saved_opportunities: left by older versions
       'joined_network', 'is_recruiter', 'read_notifications',
       'connected_linkedin', 'profile_visible',
     ];
@@ -74,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, hasProfile, setHasProfile, signUp, signIn, signInWithGoogle, signOut }}>
+    <AuthContext.Provider value={{ user, loading, hasProfile, setHasProfile, isRecruiter, signUp, signIn, signInWithGoogle, signOut }}>
       {children}
     </AuthContext.Provider>
   );

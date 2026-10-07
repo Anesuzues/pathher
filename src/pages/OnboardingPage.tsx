@@ -18,7 +18,7 @@ import {
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { cn } from '../lib/utils';
+import { cn, isValidEmail, isValidName, readJSON } from '../lib/utils';
 
 type StepId = 'personal' | 'education' | 'interests' | 'strengths' | 'goals' | 'workStyle';
 
@@ -120,12 +120,7 @@ export default function OnboardingPage() {
       }
 
       // Fallback to localStorage
-      if (!saved) {
-        try {
-          const raw = localStorage.getItem('pathher_profile');
-          if (raw) saved = JSON.parse(raw);
-        } catch { /* ignore */ }
-      }
+      if (!saved) saved = readJSON<any>('pathher_profile', null);
 
       setData(d => {
         if (saved?.fullName) {
@@ -171,17 +166,20 @@ export default function OnboardingPage() {
       // blank gap between the form disappearing and the spinner appearing, and so
       // setHasProfile(true) below cannot trigger a route redirect before we render.
       setIsGenerating(true);
-      localStorage.setItem('pathher_profile', JSON.stringify(data));
+      const profile = { ...data, fullName: data.fullName.trim(), email: data.email.trim() };
+      localStorage.setItem('pathher_profile', JSON.stringify(profile));
 
       if (user) {
         try {
-          await setDoc(doc(db, 'users', user.uid), { profile: data }, { merge: true });
-          setHasProfile(true);
+          await setDoc(doc(db, 'users', user.uid), { profile }, { merge: true });
         } catch (e) {
           console.error('Failed to save profile to Firestore:', e);
         }
       }
 
+      // The profile is cached locally even if the Firestore save failed, so the
+      // pages that need it can still open.
+      setHasProfile(true);
       navigate('/recommendations');
     }
   };
@@ -195,7 +193,7 @@ export default function OnboardingPage() {
   const isStepValid = () => {
     switch (step.id) {
       case 'personal':
-        return data.fullName.length > 2 && data.email.includes('@');
+        return isValidName(data.fullName) && isValidEmail(data.email);
       case 'education':
         return data.education !== '';
       case 'interests':

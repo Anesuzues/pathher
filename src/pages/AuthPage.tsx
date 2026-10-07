@@ -5,7 +5,7 @@ import { Mail, Lock, User, Eye, EyeOff, ArrowRight, AlertCircle, CheckCircle2, C
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { cn } from '../lib/utils';
+import { cn, isValidName } from '../lib/utils';
 
 const FIREBASE_ERRORS: Record<string, string> = {
   'auth/email-already-in-use': 'An account with this email already exists.',
@@ -46,30 +46,41 @@ export default function AuthPage() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
 
-  const { signIn, signUp, signInWithGoogle, user, loading } = useAuth();
+  const { signIn, signUp, signInWithGoogle, user, loading, hasProfile } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname || null;
 
+  // Single place that routes a signed-in user onward: once the auth context has
+  // finished its profile check, new users go to onboarding, everyone else continues.
   useEffect(() => {
-    if (!loading && user) navigate(from || '/recommendations', { replace: true });
-  }, [user, loading, navigate, from]);
+    if (loading || !user) return;
+    navigate(hasProfile ? (from || '/recommendations') : '/onboarding', { replace: true });
+  }, [user, loading, hasProfile, navigate, from]);
 
   // Don't render the form while Firebase is resolving auth state — prevents
   // a flash of the sign-in form for already-logged-in users
-  if (loading) return null;
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-purple-100 border-t-purple-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
+    if (mode === 'signup' && !isValidName(fullName)) {
+      setError('Please enter your full name.');
+      return;
+    }
     setIsLoading(true);
     try {
       if (mode === 'signup') {
-        await signUp(email, password, fullName);
-        navigate('/onboarding');
+        await signUp(email.trim(), password, fullName.trim());
       } else {
-        await signIn(email, password);
-        navigate(from || '/recommendations');
+        await signIn(email.trim(), password);
       }
     } catch (err: any) {
       setError(FIREBASE_ERRORS[err.code] || 'Something went wrong. Please try again.');
@@ -83,8 +94,6 @@ export default function AuthPage() {
     setIsGoogleLoading(true);
     try {
       await signInWithGoogle();
-      // RecommendationsPage redirects to /onboarding if no profile exists
-      navigate(from || '/recommendations');
     } catch (err: any) {
       setError(FIREBASE_ERRORS[err.code] || `Google sign-in failed (${err.code || 'unknown'}). Please try again.`);
     } finally {
@@ -277,6 +286,7 @@ export default function AuthPage() {
                   />
                   <button
                     type="button"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                     onClick={() => setShowPassword(s => !s)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                   >

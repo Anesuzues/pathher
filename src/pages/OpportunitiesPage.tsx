@@ -2,22 +2,14 @@ import { motion } from 'motion/react';
 import { useSearchParams } from 'react-router-dom';
 import { ExternalLink, Award, BookOpen, Lock, CheckCircle2, X, Calendar, GraduationCap } from 'lucide-react';
 import { KNOBZ, KNOBZ_CERTIFICATES, CAREER_PATHS, MELSOFT, MELSOFT_PROGRAMMES } from '../constants';
+import { getCachedPrimaryPath } from '../lib/recommend';
 import { cn } from '../lib/utils';
-
-function getRecommendedPathId(): string {
-  try {
-    const raw = localStorage.getItem('saved_recommendations');
-    const saved: string[] = raw ? JSON.parse(raw) : [];
-    return saved.find(id => CAREER_PATHS.some(p => p.id === id)) || '';
-  } catch {
-    return '';
-  }
-}
 
 export default function OpportunitiesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const pathParam = searchParams.get('path') || '';
-  const activePath = CAREER_PATHS.find(p => p.id === (pathParam || getRecommendedPathId()));
+  // The path chosen in the link, otherwise the user's saved or best-matched path
+  const activePath = CAREER_PATHS.find(p => p.id === pathParam) || getCachedPrimaryPath();
   const targetCert = activePath?.certificate;
   const matchesPath = (careerPaths: string[]) => !!activePath && careerPaths.includes(activePath.id);
   // Programmes that suit the user's path come first; the rest keep their original order.

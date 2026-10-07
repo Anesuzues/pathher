@@ -7,22 +7,18 @@ import {
 import { Timestamp } from 'firebase/firestore';
 import { loadUserField, saveUserField, saveMentorRequest } from '../lib/userdata';
 import { useAuth } from '../contexts/AuthContext';
-import { KNOBZ, CAREER_PATHS, getCertificate } from '../constants';
+import { KNOBZ, getCertificate } from '../constants';
+import { getCachedPrimaryPath } from '../lib/recommend';
+import { readJSON } from '../lib/utils';
 
 function loadReadiness() {
-  try {
-    const profile = JSON.parse(localStorage.getItem('pathher_profile') || 'null');
-    const saved: string[] = JSON.parse(localStorage.getItem('saved_recommendations') || '[]');
-    const fields = profile ? [
-      profile.fullName, profile.email, profile.education,
-      profile.interests?.length, profile.strengths?.length, profile.goals?.length, profile.workStyle?.length,
-    ] : [];
-    const completion = Math.round((fields.filter(Boolean).length / 7) * 100);
-    const path = CAREER_PATHS.find(p => saved.includes(p.id));
-    return { completion, path };
-  } catch {
-    return { completion: 0, path: undefined };
-  }
+  const profile = readJSON<any>('pathher_profile', null);
+  const fields = profile ? [
+    profile.fullName, profile.email, profile.education,
+    profile.interests?.length, profile.strengths?.length, profile.goals?.length, profile.workStyle?.length,
+  ] : [];
+  const completion = Math.round((fields.filter(Boolean).length / 7) * 100);
+  return { completion, path: getCachedPrimaryPath() };
 }
 
 export default function EcosystemPage() {
@@ -32,6 +28,7 @@ export default function EcosystemPage() {
   const [mentorMessage, setMentorMessage] = useState('');
   const [mentorSent, setMentorSent] = useState(false);
   const [isSendingMentor, setIsSendingMentor] = useState(false);
+  const [mentorError, setMentorError] = useState('');
   const [readiness] = useState(loadReadiness);
   const { user } = useAuth();
 
@@ -54,10 +51,10 @@ export default function EcosystemPage() {
 
   const handleMentorRequest = async () => {
     if (!mentorField.trim() || !user) return;
+    setMentorError('');
     setIsSendingMentor(true);
-    const profile = localStorage.getItem('pathher_profile');
-    const userName = profile ? JSON.parse(profile).fullName : (user.displayName || 'Anonymous');
-    await saveMentorRequest({
+    const userName = readJSON<any>('pathher_profile', null)?.fullName || user.displayName || 'Anonymous';
+    const ok = await saveMentorRequest({
       userId: user.uid,
       userName,
       field: mentorField.trim(),
@@ -66,6 +63,10 @@ export default function EcosystemPage() {
       status: 'pending',
     });
     setIsSendingMentor(false);
+    if (!ok) {
+      setMentorError("We couldn't send your request. Please check your connection and try again.");
+      return;
+    }
     setMentorSent(true);
     setTimeout(() => {
       setShowMentorModal(false);
@@ -127,6 +128,9 @@ export default function EcosystemPage() {
                       />
                     </div>
                   </div>
+                  {mentorError && (
+                    <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">{mentorError}</p>
+                  )}
                   <button
                     onClick={handleMentorRequest}
                     disabled={!mentorField.trim() || isSendingMentor}

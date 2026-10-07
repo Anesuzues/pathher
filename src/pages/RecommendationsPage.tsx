@@ -7,41 +7,14 @@ import {
 } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { loadUserField, saveUserField } from '../lib/userdata';
+import { saveUserField } from '../lib/userdata';
 import { useAuth } from '../contexts/AuthContext';
 import { CAREER_PATHS, KNOBZ, getCertificate } from '../constants';
 import { CareerPath } from '../types';
-import { cn } from '../lib/utils';
+import { rankCareerPaths } from '../lib/recommend';
+import { cn, readJSON, readStringList } from '../lib/utils';
 
 const iconMap: Record<string, any> = { Code, Briefcase, FileCheck, Bot };
-
-const CAREER_KEYWORDS: Record<string, string[]> = {
-  'ai-digital-professional': ['Business', 'Marketing', 'Finance', 'Healthcare', 'Education', 'Social Work', 'Law', 'Communication', 'Organization', 'Leadership', 'Teamwork', 'Empathy', 'Public Speaking', 'Adaptability', 'Stability', 'Work-Life Balance', 'Helping Others', 'Networking', 'Management', 'Social Impact'],
-  'junior-software-developer': ['Technology', 'Engineering', 'Arts & Design', 'Problem Solving', 'Technical Skills', 'Creativity', 'Skill Mastery', 'High Salary'],
-  'ai-enhanced-developer': ['Technology', 'Science', 'Writing', 'Analytical Thinking', 'Organization', 'Communication', 'Skill Mastery', 'Innovation'],
-  'ai-application-developer': ['Technology', 'Engineering', 'Science', 'Technical Skills', 'Problem Solving', 'Analytical Thinking', 'Innovation', 'Entrepreneurship', 'High Salary'],
-};
-
-// Advanced certificates build on earlier ones, so weight them by how far along the person already is.
-const EDUCATION_BONUS: Record<string, Partial<Record<string, number>>> = {
-  'High School Student': { 'ai-digital-professional': 3, 'junior-software-developer': 1 },
-  'High School Graduate': { 'ai-digital-professional': 2, 'junior-software-developer': 2 },
-  'Undergraduate Student': { 'junior-software-developer': 2, 'ai-enhanced-developer': 1 },
-  'University Graduate': { 'ai-enhanced-developer': 2, 'ai-application-developer': 1 },
-  'Postgraduate Student': { 'ai-enhanced-developer': 1, 'ai-application-developer': 2 },
-  'Working Professional': { 'ai-digital-professional': 1, 'ai-application-developer': 2 },
-  'Career Changer': { 'ai-digital-professional': 2, 'junior-software-developer': 2 },
-};
-
-function scoreCareerPath(path: CareerPath, profile: { interests: string[]; strengths: string[]; goals: string[]; education?: string }): number {
-  const keywords = CAREER_KEYWORDS[path.id] || [];
-  let score = 0;
-  (profile.interests || []).forEach(i => { if (keywords.includes(i)) score += 3; });
-  (profile.strengths || []).forEach(s => { if (keywords.includes(s)) score += 2; });
-  (profile.goals || []).forEach(g => { if (keywords.includes(g)) score += 1; });
-  score += EDUCATION_BONUS[profile.education || '']?.[path.id] || 0;
-  return score;
-}
 
 export default function RecommendationsPage() {
   const [recommendations, setRecommendations] = useState<CareerPath[]>([]);
@@ -54,66 +27,49 @@ export default function RecommendationsPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
+    let cancelled = false;
 
     const load = async () => {
-      let profile: any = null;
-
       // Try Firestore first, fall back to localStorage
+      let userDoc: Record<string, any> | null = null;
       if (user) {
         try {
           const snap = await getDoc(doc(db, 'users', user.uid));
-          if (snap.exists() && snap.data()?.profile) {
-            profile = snap.data().profile;
-            localStorage.setItem('pathher_profile', JSON.stringify(profile));
-          }
+          if (snap.exists()) userDoc = snap.data();
         } catch (e) {
           console.error('Failed to load profile from Firestore:', e);
         }
       }
+      if (cancelled) return;
+
+      let profile = userDoc?.profile ?? null;
+      if (profile) localStorage.setItem('pathher_profile', JSON.stringify(profile));
+      else profile = readJSON<any>('pathher_profile', null);
 
       if (!profile) {
-        const raw = localStorage.getItem('pathher_profile');
-        if (raw) profile = JSON.parse(raw);
-      }
-
-      if (!profile) {
-        navigate('/onboarding');
+        navigate('/onboarding', { replace: true });
         return;
       }
 
-      setProfileName(profile.fullName?.split(' ')[0] || 'there');
-      setInterests(profile.interests || []);
+      setProfileName(typeof profile.fullName === 'string' ? profile.fullName.split(' ')[0] || 'there' : 'there');
+      setInterests(Array.isArray(profile.interests) ? profile.interests : []);
 
-      // Load saved recommendations — Firestore preferred, localStorage fallback
-      if (user) {
-        const fromFirestore = await loadUserField<string[]>(user.uid, 'savedRecommendations', []);
-        if (fromFirestore.length > 0) {
-          setSaved(fromFirestore);
-          localStorage.setItem('saved_recommendations', JSON.stringify(fromFirestore));
-        } else {
-          const raw = localStorage.getItem('saved_recommendations');
-          if (raw) setSaved(JSON.parse(raw));
-        }
+      // Saved recommendations — Firestore preferred, localStorage fallback
+      const fromFirestore: string[] = Array.isArray(userDoc?.savedRecommendations) ? userDoc.savedRecommendations : [];
+      if (fromFirestore.length > 0) {
+        setSaved(fromFirestore);
+        localStorage.setItem('saved_recommendations', JSON.stringify(fromFirestore));
       } else {
-        const raw = localStorage.getItem('saved_recommendations');
-        if (raw) setSaved(JSON.parse(raw));
+        setSaved(readStringList('saved_recommendations'));
       }
 
-      timer = setTimeout(() => {
-        const scored = CAREER_PATHS
-          .map(path => ({ path, score: scoreCareerPath(path, profile) }))
-          .sort((a, b) => b.score - a.score)
-          .slice(0, 3)
-          .map(x => x.path);
-        setRecommendations(scored);
-        setIsLoading(false);
-      }, 1500);
+      setRecommendations(rankCareerPaths(profile).slice(0, 3));
+      setIsLoading(false);
     };
 
     load();
 
-    return () => clearTimeout(timer);
+    return () => { cancelled = true; };
   }, [user, navigate]);
 
   const toggleSave = (id: string) => {
@@ -123,16 +79,17 @@ export default function RecommendationsPage() {
     if (user) saveUserField(user.uid, 'savedRecommendations', updated);
   };
 
-  const handleShare = (path: CareerPath) => {
+  const handleShare = async (path: CareerPath) => {
     const text = `I'm exploring the ${path.title} career path on PathHer AI! ${path.whyItFits}`;
-    if (navigator.share) {
-      navigator.share({ title: `PathHer AI — ${path.title}`, text });
-    } else {
-      navigator.clipboard.writeText(text).then(() => {
-        setShareToast('Link copied to clipboard!');
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `PathHer AI — ${path.title}`, text });
+      } else {
+        await navigator.clipboard.writeText(text);
+        setShareToast('Copied to clipboard!');
         setTimeout(() => setShareToast(''), 2500);
-      });
-    }
+      }
+    } catch { /* share sheet dismissed or clipboard blocked */ }
   };
 
   if (isLoading) {

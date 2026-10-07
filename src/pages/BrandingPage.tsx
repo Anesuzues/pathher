@@ -7,8 +7,12 @@ import { useNavigate } from 'react-router-dom';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { cn } from '../lib/utils';
+import { cn, readJSON, readStringList } from '../lib/utils';
+import { getPrimaryPath } from '../lib/recommend';
 import { CAREER_PATHS } from '../constants';
+
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 function generateCV(profile: any, path: any, variation: number): string {
   const name = (profile.fullName || 'Your Name').toUpperCase();
@@ -97,25 +101,22 @@ export default function BrandingPage() {
           if (snap.exists()) {
             const data = snap.data();
             if (data?.profile) prof = data.profile;
-            if (data?.savedRecommendations) savedIds = data.savedRecommendations;
+            if (Array.isArray(data?.savedRecommendations)) savedIds = data.savedRecommendations;
             if (typeof data?.profileVisible === 'boolean') setProfileVisible(data.profileVisible);
           }
         } catch { /* fallback to localStorage */ }
       }
 
       if (!prof) {
-        const raw = localStorage.getItem('pathher_profile');
-        prof = raw ? JSON.parse(raw) : {
+        prof = readJSON<any>('pathher_profile', null) || {
           fullName: '', email: '', education: '',
           interests: [], strengths: [], goals: [], workStyle: [],
         };
       }
-      if (!savedIds.length) {
-        const savedRaw = localStorage.getItem('saved_recommendations');
-        savedIds = savedRaw ? JSON.parse(savedRaw) : [];
-      }
+      if (!savedIds.length) savedIds = readStringList('saved_recommendations');
 
-      const path = CAREER_PATHS.find(p => p.id === savedIds[0]) || CAREER_PATHS[0];
+      // Brand around the first path the user saved; otherwise their best match
+      const path = getPrimaryPath(prof, savedIds) || CAREER_PATHS[0];
       setProfile(prof);
       setPrimaryPath(path);
       setCvContent(generateCV(prof, path, 0));
@@ -146,7 +147,7 @@ export default function BrandingPage() {
     navigator.clipboard.writeText(content).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
+    }).catch(() => { /* clipboard blocked */ });
   };
 
   const handleDownloadPDF = () => {
@@ -155,7 +156,7 @@ export default function BrandingPage() {
 
   const handleExportWord = () => {
     const content = activeTab === 'cv' ? cvContent : linkedinBio;
-    const html = `<html><body><pre style="font-family:Arial,sans-serif;white-space:pre-wrap;font-size:13px;line-height:1.6">${content}</pre></body></html>`;
+    const html = `<html><head><meta charset="utf-8"></head><body><pre style="font-family:Arial,sans-serif;white-space:pre-wrap;font-size:13px;line-height:1.6">${escapeHtml(content)}</pre></body></html>`;
     const blob = new Blob([html], { type: 'application/msword' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -220,7 +221,7 @@ export default function BrandingPage() {
                 <p className="text-purple-600 font-medium">{primaryPath.title} Path</p>
               </div>
               <div className="flex gap-2">
-                {hasProfile && <span className="px-3 py-1 bg-green-50 text-green-600 rounded-full text-[10px] font-bold uppercase tracking-wider">Verified Profile</span>}
+                {hasProfile && user?.emailVerified && <span className="px-3 py-1 bg-green-50 text-green-600 rounded-full text-[10px] font-bold uppercase tracking-wider">Verified Profile</span>}
                 <span className="px-3 py-1 bg-purple-50 text-purple-600 rounded-full text-[10px] font-bold uppercase tracking-wider">{completion}% Ready</span>
               </div>
             </div>

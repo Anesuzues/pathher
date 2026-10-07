@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { useState, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Home, User, Briefcase, GraduationCap, LayoutDashboard,
@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { sendEmailVerification } from 'firebase/auth';
 import { auth } from './lib/firebase';
-import { cn } from './lib/utils';
+import { cn, readJSON } from './lib/utils';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ErrorBoundary from './components/ErrorBoundary';
 
@@ -24,8 +24,8 @@ import ProfilePage from './pages/ProfilePage';
 import NotFoundPage from './pages/NotFoundPage';
 import LegalPage from './pages/LegalPage';
 
-function PrivateRoute({ children }: { children: ReactNode }) {
-  const { user, loading } = useAuth();
+function PrivateRoute({ children, requireProfile = false }: { children: ReactNode; requireProfile?: boolean }) {
+  const { user, loading, hasProfile } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -38,6 +38,11 @@ function PrivateRoute({ children }: { children: ReactNode }) {
 
   if (!user) {
     return <Navigate to="/auth" state={{ from: location }} replace />;
+  }
+
+  // Pages built on the assessment answers are useless without them
+  if (requireProfile && !hasProfile) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   return <>{children}</>;
@@ -60,13 +65,22 @@ function Navigation({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [readIds, setReadIds] = useState<Set<number>>(() => {
-    try {
-      const raw = localStorage.getItem('read_notifications');
-      return raw ? new Set(JSON.parse(raw)) : new Set();
-    } catch { return new Set(); }
+    const ids = readJSON<unknown>('read_notifications', []);
+    return new Set(Array.isArray(ids) ? ids : []);
   });
-  const { user, signOut } = useAuth();
+  const { user, signOut, isRecruiter } = useAuth();
   const unreadCount = NOTIFICATIONS.filter(n => n.unread && !readIds.has(n.id)).length;
+
+  useEffect(() => {
+    if (!isNotificationsOpen && !isMobileMenuOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setIsNotificationsOpen(false);
+      setIsMobileMenuOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isNotificationsOpen, isMobileMenuOpen]);
 
   const markAllRead = () => {
     const allIds = NOTIFICATIONS.map(n => n.id);
@@ -81,7 +95,7 @@ function Navigation({
     { path: '/opportunities', label: 'Learning', icon: GraduationCap },
     { path: '/branding', label: 'Branding', icon: Award },
     { path: '/ecosystem', label: 'Network', icon: User },
-    { path: '/dashboard', label: 'Admin', icon: LayoutDashboard },
+    { path: '/dashboard', label: isRecruiter ? 'Admin' : 'Recruiters', icon: LayoutDashboard },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -404,10 +418,10 @@ function AppShell() {
               <Route path="/" element={<LandingPage />} />
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/onboarding" element={<PrivateRoute><OnboardingPage /></PrivateRoute>} />
-              <Route path="/recommendations" element={<PrivateRoute><RecommendationsPage /></PrivateRoute>} />
-              <Route path="/opportunities" element={<PrivateRoute><OpportunitiesPage /></PrivateRoute>} />
-              <Route path="/branding" element={<PrivateRoute><BrandingPage /></PrivateRoute>} />
-              <Route path="/ecosystem" element={<PrivateRoute><EcosystemPage /></PrivateRoute>} />
+              <Route path="/recommendations" element={<PrivateRoute requireProfile><RecommendationsPage /></PrivateRoute>} />
+              <Route path="/opportunities" element={<PrivateRoute requireProfile><OpportunitiesPage /></PrivateRoute>} />
+              <Route path="/branding" element={<PrivateRoute requireProfile><BrandingPage /></PrivateRoute>} />
+              <Route path="/ecosystem" element={<PrivateRoute requireProfile><EcosystemPage /></PrivateRoute>} />
               <Route path="/dashboard" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
               <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
               <Route path="/terms" element={<LegalPage />} />

@@ -26,12 +26,12 @@ export default function LandingPage() {
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (showReset && resetStep === 'breathing') {
-      const cycleDuration = 12000; // 4s inhale + 4s hold + 4s exhale
-      
+      const cycleDuration = 10000; // 4s inhale + 2s hold + 4s exhale; 3 cycles = 30s
+
       const runPhase = () => {
         setBreathPhase('Inhale');
         phaseTimers.current.push(setTimeout(() => setBreathPhase('Hold'), 4000));
-        phaseTimers.current.push(setTimeout(() => setBreathPhase('Exhale'), 8000));
+        phaseTimers.current.push(setTimeout(() => setBreathPhase('Exhale'), 6000));
       };
 
       runPhase();

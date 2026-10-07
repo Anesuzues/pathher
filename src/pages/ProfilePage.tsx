@@ -7,7 +7,7 @@ import {
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { cn } from '../lib/utils';
+import { cn, isValidEmail, isValidName, readJSON } from '../lib/utils';
 
 interface ProfileData {
   fullName: string;
@@ -55,6 +55,7 @@ export default function ProfilePage() {
   });
   const [isSaving, setIsSaving] = useState(false);
   const [savedDone, setSavedDone] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const { user, setHasProfile } = useAuth();
   const navigate = useNavigate();
 
@@ -72,22 +73,18 @@ export default function ProfilePage() {
         } catch { /* Firestore unavailable — fall through to localStorage */ }
       }
 
-      if (!profile) {
-        try {
-          const raw = localStorage.getItem('pathher_profile');
-          if (raw) profile = JSON.parse(raw);
-        } catch { /* ignore */ }
-      }
+      if (!profile) profile = readJSON<any>('pathher_profile', null);
 
       if (profile) {
+        const list = (v: unknown): string[] => (Array.isArray(v) ? v : []);
         setData({
           fullName: profile.fullName || user?.displayName || '',
           email: profile.email || user?.email || '',
           education: profile.education || '',
-          interests: profile.interests || [],
-          strengths: profile.strengths || [],
-          goals: profile.goals || [],
-          workStyle: profile.workStyle || [],
+          interests: list(profile.interests),
+          strengths: list(profile.strengths),
+          goals: list(profile.goals),
+          workStyle: list(profile.workStyle),
         });
       } else if (user) {
         setData(d => ({
@@ -110,16 +107,25 @@ export default function ProfilePage() {
   };
 
   const handleSave = async () => {
+    setSaveError('');
+    if (!isValidName(data.fullName)) { setSaveError('Please enter your full name.'); return; }
+    if (!isValidEmail(data.email)) { setSaveError('Please enter a valid email address.'); return; }
+
+    const profile = { ...data, fullName: data.fullName.trim(), email: data.email.trim() };
     setIsSaving(true);
-    localStorage.setItem('pathher_profile', JSON.stringify(data));
     if (user) {
       try {
-        await setDoc(doc(db, 'users', user.uid), { profile: data }, { merge: true });
-        setHasProfile(true);
+        await setDoc(doc(db, 'users', user.uid), { profile }, { merge: true });
       } catch (e) {
         console.error('Failed to save profile:', e);
+        setIsSaving(false);
+        setSaveError("We couldn't save your changes. Please check your connection and try again.");
+        return;
       }
     }
+    localStorage.setItem('pathher_profile', JSON.stringify(profile));
+    setData(profile);
+    setHasProfile(true);
     setIsSaving(false);
     setSavedDone(true);
     setTimeout(() => setSavedDone(false), 3000);
@@ -234,6 +240,10 @@ export default function ProfilePage() {
           </div>
         ))}
       </motion.div>
+
+      {saveError && (
+        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">{saveError}</p>
+      )}
 
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <p className="text-sm text-gray-400 flex items-center gap-2">

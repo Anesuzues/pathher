@@ -13,11 +13,15 @@ export async function loadUserField<T>(uid: string, field: string, fallback: T):
   return fallback;
 }
 
-export async function saveUserField(uid: string, field: string, value: unknown): Promise<void> {
+// The write helpers below resolve to false/null on failure so callers can tell the user.
+
+export async function saveUserField(uid: string, field: string, value: unknown): Promise<boolean> {
   try {
     await setDoc(doc(db, 'users', uid), { [field]: value }, { merge: true });
+    return true;
   } catch (e) {
     console.error(`Failed to save user field "${field}":`, e);
+    return false;
   }
 }
 
@@ -31,11 +35,13 @@ export interface MentorRequest {
   status: 'pending' | 'matched';
 }
 
-export async function saveMentorRequest(req: Omit<MentorRequest, 'id'>): Promise<void> {
+export async function saveMentorRequest(req: Omit<MentorRequest, 'id'>): Promise<boolean> {
   try {
     await addDoc(collection(db, 'mentorRequests'), req);
+    return true;
   } catch (e) {
     console.error('Failed to save mentor request:', e);
+    return false;
   }
 }
 
@@ -70,10 +76,12 @@ export async function loadUserRoles(uid: string): Promise<PostedRole[]> {
   }
 }
 
-export async function closeRole(roleId: string): Promise<void> {
+export async function closeRole(roleId: string): Promise<boolean> {
   try {
     await setDoc(doc(db, 'roles', roleId), { status: 'closed' }, { merge: true });
+    return true;
   } catch (e) {
     console.error('Failed to close role:', e);
+    return false;
   }
 }
