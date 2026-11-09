@@ -7,7 +7,8 @@ import {
 import { Timestamp } from 'firebase/firestore';
 import { loadUserField, saveUserField, saveMentorRequest } from '../lib/userdata';
 import { useAuth } from '../contexts/AuthContext';
-import { KNOBZ, getCertificate } from '../constants';
+import { KNOBZ } from '../constants';
+import { useKnobzCertificates } from '../lib/knobzCatalogue';
 import { getCachedPrimaryPath } from '../lib/recommend';
 import { readJSON } from '../lib/utils';
 
@@ -30,6 +31,7 @@ export default function EcosystemPage() {
   const [isSendingMentor, setIsSendingMentor] = useState(false);
   const [mentorError, setMentorError] = useState('');
   const [readiness] = useState(loadReadiness);
+  const { getCertificate } = useKnobzCertificates();
   const { user } = useAuth();
 
   // Sync join status from Firestore on mount

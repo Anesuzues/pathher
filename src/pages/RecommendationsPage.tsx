@@ -9,7 +9,8 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { saveUserField } from '../lib/userdata';
 import { useAuth } from '../contexts/AuthContext';
-import { CAREER_PATHS, KNOBZ, getCertificate } from '../constants';
+import { CAREER_PATHS, KNOBZ } from '../constants';
+import { useKnobzCertificates } from '../lib/knobzCatalogue';
 import { CareerPath } from '../types';
 import { rankCareerPaths } from '../lib/recommend';
 import { cn, readJSON, readStringList } from '../lib/utils';
@@ -25,6 +26,7 @@ export default function RecommendationsPage() {
   const [shareToast, setShareToast] = useState('');
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { getCertificate } = useKnobzCertificates();
 
   useEffect(() => {
     let cancelled = false;

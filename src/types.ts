@@ -7,7 +7,7 @@ export interface UserProfile {
 }
 
 export interface KnobzCertificate {
-  number: 1 | 2 | 3 | 4;
+  number: number; // live list can add certificates (see src/lib/knobzCatalogue.ts)
   title: string;
   subtitle: string;
   description: string;

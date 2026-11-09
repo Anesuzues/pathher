@@ -56,3 +56,22 @@ test('readJSON and readStringList survive corrupt localStorage', () => {
   assert.deepEqual(readStringList('mixed'), ['a']);
   assert.deepEqual(readStringList('object'), []);
 });
+
+test('parseCertificateRows keeps good rows and rejects junk', async () => {
+  const { parseCertificateRows, findCertificate } = await import('../src/lib/knobzCatalogue.ts');
+  assert.equal(parseCertificateRows(null), null);
+  assert.equal(parseCertificateRows([]), null);
+  assert.equal(parseCertificateRows([{ number: 'x', title: 'T', description: 'D', level: 'Beginner' }]), null);
+  const rows = parseCertificateRows([
+    { number: 1, title: ' New title ', subtitle: null, description: 'Desc', level: 'Beginner', modules: 4 },
+    { number: 2, title: 'Bad level', description: 'Desc', level: 'Expert' },
+    { number: 6, title: 'Brand new', description: 'Desc', level: 'Advanced', modules: -1 },
+  ]);
+  assert.deepEqual(rows, [
+    { number: 1, title: 'New title', subtitle: '', description: 'Desc', level: 'Beginner', modules: 4 },
+    { number: 6, title: 'Brand new', subtitle: '', description: 'Desc', level: 'Advanced', modules: 0 },
+  ]);
+  // A certificate missing from the live list falls back to the built-in one.
+  assert.equal(findCertificate(rows!, 3)?.title, KNOBZ_CERTIFICATES[2].title);
+  assert.equal(findCertificate(rows!, 1)?.title, 'New title');
+});

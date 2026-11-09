@@ -1,12 +1,14 @@
 import { motion } from 'motion/react';
 import { useSearchParams } from 'react-router-dom';
 import { ExternalLink, Award, BookOpen, Lock, CheckCircle2, X, Calendar, GraduationCap } from 'lucide-react';
-import { KNOBZ, KNOBZ_CERTIFICATES, CAREER_PATHS, MELSOFT, MELSOFT_PROGRAMMES } from '../constants';
+import { KNOBZ, CAREER_PATHS, MELSOFT, MELSOFT_PROGRAMMES } from '../constants';
+import { useKnobzCertificates } from '../lib/knobzCatalogue';
 import { getCachedPrimaryPath } from '../lib/recommend';
 import { cn } from '../lib/utils';
 
 export default function OpportunitiesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { certificates } = useKnobzCertificates();
   const pathParam = searchParams.get('path') || '';
   // The path chosen in the link, otherwise the user's saved or best-matched path
   const activePath = CAREER_PATHS.find(p => p.id === pathParam) || getCachedPrimaryPath();
@@ -95,7 +97,7 @@ export default function OpportunitiesPage() {
         </div>
 
         <div className="space-y-4">
-          {KNOBZ_CERTIFICATES.map((cert, i) => {
+          {certificates.map((cert, i) => {
             const isTarget = cert.number === targetCert;
             const isOnTheWay = targetCert !== undefined && cert.number < targetCert;
             return (
