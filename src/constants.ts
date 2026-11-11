@@ -1,4 +1,4 @@
-import { CareerPath, KnobzCertificate, MelsoftProgramme } from './types';
+import { CareerPath, KnobzCertificate } from './types';
 
 // Learning partner: KnobzToLearn (NobzLearn) AI Developer Certificate Programme.
 export const KNOBZ = {
@@ -80,101 +80,5 @@ export const CAREER_PATHS: CareerPath[] = [
     skillsNeeded: ['AI Agents', 'RAG Systems', 'Production AI Apps'],
     certificate: 4,
     icon: 'Bot',
-  },
-];
-
-// Programmes listed on https://www.melsoftacademy.com (accredited qualifications and bootcamps).
-export const MELSOFT = {
-  name: 'Melsoft Academy',
-  url: 'https://www.melsoftacademy.com/',
-  fundingUrl: 'https://www.melsoftacademy.com/funding',
-  programmeUrl: (id: string) => `https://www.melsoftacademy.com/programme/${id}`,
-};
-
-export const MELSOFT_PROGRAMMES: MelsoftProgramme[] = [
-  {
-    id: 'software-developer',
-    title: 'Software Developer',
-    track: 'Accredited',
-    description: 'Covers the full software development lifecycle, from requirements analysis to deployment.',
-    duration: '12 months',
-    cost: 'R 74 999',
-    accreditation: 'NQF Level 5 · QCTO',
-    careerPaths: ['junior-software-developer'],
-  },
-  {
-    id: 'software-engineering',
-    title: 'Software Developer Bootcamp',
-    track: 'Bootcamp',
-    description: 'Intensive, hands-on programme that takes beginners to job-ready full-stack developers.',
-    duration: '6 months',
-    cost: 'R 49 999',
-    careerPaths: ['junior-software-developer'],
-  },
-  {
-    id: 'ai-software-developer',
-    title: 'AI Software Developer',
-    track: 'Accredited',
-    description: 'AI from basics to deployment: Python, machine learning, deep learning and ethical AI.',
-    duration: '12 months',
-    cost: 'R 74 999',
-    accreditation: 'NQF Level 5 · QCTO',
-    careerPaths: ['ai-application-developer'],
-  },
-  {
-    id: 'ai-software-engineering',
-    title: 'AI Software Developer Bootcamp',
-    track: 'Bootcamp',
-    description: 'Intensive programme for dedicated developers building AI software.',
-    duration: '6–12 months',
-    cost: 'R 49 999',
-    careerPaths: ['ai-application-developer'],
-  },
-  {
-    id: 'data-science-practitioner',
-    title: 'Data Science Practitioner',
-    track: 'Accredited',
-    description: 'Turn raw data into insights, and present findings through visualisations and reports.',
-    duration: '12 months',
-    cost: 'R 74 999',
-    accreditation: 'NQF Level 5 · QCTO',
-    careerPaths: ['ai-enhanced-developer'],
-  },
-  {
-    id: 'data-science',
-    title: 'Data Science Bootcamp',
-    track: 'Bootcamp',
-    description: 'Practical programme covering the full data science lifecycle for beginners.',
-    duration: '6 months',
-    cost: 'R 49 999',
-    careerPaths: ['ai-enhanced-developer'],
-  },
-  {
-    id: 'cybersecurity-analyst',
-    title: 'Cybersecurity Analyst',
-    track: 'Accredited',
-    description: 'Learn to protect networks, systems and data from cyber threats.',
-    duration: '12 months',
-    cost: 'R 74 999',
-    accreditation: 'NQF Level 5 · QCTO',
-    careerPaths: [],
-  },
-  {
-    id: 'cyber-security',
-    title: 'Cyber Security Bootcamp',
-    track: 'Bootcamp',
-    description: 'Prepares you for roles like Cybersecurity Analyst, Ethical Hacker or Information Security Consultant.',
-    duration: '6 months',
-    cost: 'R 49 999',
-    careerPaths: [],
-  },
-  {
-    id: 'content-creation',
-    title: 'Content Creation',
-    track: 'Bootcamp',
-    description: '12-week Creator Academy: find your voice, build your content engine and launch monetised content.',
-    duration: '12 weeks',
-    cost: 'R 19 999',
-    careerPaths: ['ai-digital-professional'],
   },
 ];

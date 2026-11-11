@@ -1,18 +1,31 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Download, X, Plus, ChevronDown, Briefcase, XCircle, LayoutDashboard, UserCheck, Users,
+  Download, X, Plus, ChevronDown, Briefcase, XCircle, LayoutDashboard, UserCheck, Users, Sparkles,
 } from 'lucide-react';
 import { Timestamp, doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { saveRole, loadUserRoles, closeRole, PostedRole } from '../lib/userdata';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
+import { CAREER_PATHS } from '../constants';
+import { aiErrorMessage, requestAi, type RoleResult } from '../lib/ai';
+
+const MAX_DESCRIPTION = 3000;
+
+// Turns an AI draft into plain text the recruiter can edit before posting.
+function roleDraftText(r: RoleResult): string {
+  return `${r.summary}\n\nWhat you'll do:\n${r.responsibilities.map(x => `• ${x}`).join('\n')}\n\nWhat we're looking for:\n${r.skills.map(x => `• ${x}`).join('\n')}`;
+}
 
 export default function DashboardPage() {
   const [showPostModal, setShowPostModal] = useState(false);
   const [jobTitle, setJobTitle] = useState('');
   const [jobType, setJobType] = useState('Full-time');
+  const [jobDescription, setJobDescription] = useState('');
+  const [jobPathId, setJobPathId] = useState('');
+  const [isDrafting, setIsDrafting] = useState(false);
+  const [draftNotice, setDraftNotice] = useState('');
   const [jobPosted, setJobPosted] = useState(false);
   const [postedRoles, setPostedRoles] = useState<PostedRole[]>([]);
   const [isPostingRole, setIsPostingRole] = useState(false);
@@ -75,6 +88,8 @@ export default function DashboardPage() {
     );
   }
 
+  const pathTitle = (id?: string) => CAREER_PATHS.find(p => p.id === id)?.title;
+
   const formatDate = (ts: Timestamp) =>
     ts.toDate().toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -91,14 +106,44 @@ export default function DashboardPage() {
     URL.revokeObjectURL(url);
   };
 
+  const handleDraftRole = async () => {
+    if (!jobTitle.trim() || isDrafting) return;
+    setDraftNotice('');
+    setIsDrafting(true);
+    try {
+      const draft = await requestAi('role', { title: jobTitle.trim(), type: jobType, paths: CAREER_PATHS.map(p => p.title) });
+      setJobDescription(roleDraftText(draft).slice(0, MAX_DESCRIPTION));
+      setJobPathId(CAREER_PATHS.find(p => p.title === draft.pathTitle)?.id ?? '');
+    } catch (e) {
+      setDraftNotice(aiErrorMessage(e));
+    } finally {
+      setIsDrafting(false);
+    }
+  };
+
+  const resetPostForm = () => {
+    setShowPostModal(false);
+    setJobTitle('');
+    setJobType('Full-time');
+    setJobDescription('');
+    setJobPathId('');
+    setDraftNotice('');
+    setJobPosted(false);
+  };
+
   const handlePostRole = async () => {
     if (!jobTitle.trim() || !user) return;
     setRoleError('');
     setIsPostingRole(true);
     const displayName = user.displayName || user.email?.split('@')[0] || 'Admin';
+    const details = {
+      ...(jobDescription.trim() ? { description: jobDescription.trim().slice(0, MAX_DESCRIPTION) } : {}),
+      ...(jobPathId ? { pathId: jobPathId } : {}),
+    };
     const id = await saveRole({
       title: jobTitle.trim(),
       type: jobType,
+      ...details,
       postedBy: user.uid,
       postedByName: displayName,
       createdAt: Timestamp.now(),
@@ -113,6 +158,7 @@ export default function DashboardPage() {
       id,
       title: jobTitle.trim(),
       type: jobType,
+      ...details,
       postedBy: user.uid,
       postedByName: displayName,
       createdAt: Timestamp.now(),
@@ -120,12 +166,7 @@ export default function DashboardPage() {
     };
     setPostedRoles(prev => [newRole, ...prev]);
     setJobPosted(true);
-    setTimeout(() => {
-      setShowPostModal(false);
-      setJobTitle('');
-      setJobType('Full-time');
-      setJobPosted(false);
-    }, 1800);
+    setTimeout(resetPostForm, 1800);
   };
 
   const handleCloseRole = async (roleId: string) => {
@@ -187,6 +228,45 @@ export default function DashboardPage() {
                           {['Full-time', 'Part-time', 'Contract', 'Internship', 'Graduate Program'].map(t => (
                             <option key={t}>{t}</option>
                           ))}
+                        </select>
+                        <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <label className="text-sm font-bold text-gray-700">Description (optional)</label>
+                        <button
+                          type="button"
+                          onClick={handleDraftRole}
+                          disabled={!jobTitle.trim() || isDrafting}
+                          className="text-xs font-bold text-purple-600 hover:text-purple-800 flex items-center gap-1 disabled:opacity-50"
+                        >
+                          <Sparkles size={12} className={isDrafting ? 'animate-pulse' : ''} />
+                          {isDrafting ? 'Writing…' : jobDescription.trim() ? 'Rewrite with AI' : 'Write with AI'}
+                        </button>
+                      </div>
+                      <textarea
+                        value={jobDescription}
+                        onChange={e => setJobDescription(e.target.value.slice(0, MAX_DESCRIPTION))}
+                        placeholder="What the role involves and who it suits. Add a title, then let AI write a first draft."
+                        rows={6}
+                        className="w-full px-4 py-3 bg-gray-50 border-2 border-transparent focus:border-purple-500 focus:bg-white rounded-2xl outline-none font-medium text-sm transition-all resize-none"
+                      />
+                      {draftNotice && (
+                        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">{draftNotice}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-gray-700">Best-suited PathHer path</label>
+                      <div className="relative">
+                        <select
+                          title="Career path"
+                          value={jobPathId}
+                          onChange={e => setJobPathId(e.target.value)}
+                          className="w-full px-4 py-3 bg-gray-50 border-2 border-transparent focus:border-purple-500 focus:bg-white rounded-2xl outline-none font-medium text-sm appearance-none cursor-pointer"
+                        >
+                          <option value="">Not linked to a path</option>
+                          {CAREER_PATHS.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
                         </select>
                         <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                       </div>
@@ -280,7 +360,11 @@ export default function DashboardPage() {
                       )}>{role.status}</span>
                       <span>{role.type}</span>
                       <span>{formatDate(role.createdAt)}</span>
+                      {pathTitle(role.pathId) && <span className="text-purple-500">{pathTitle(role.pathId)} path</span>}
                     </div>
+                    {role.description && (
+                      <p className="text-xs text-gray-500 leading-relaxed line-clamp-2 pt-1">{role.description}</p>
+                    )}
                   </div>
                 </div>
                 {role.status === 'active' && (

@@ -49,6 +49,9 @@ export interface PostedRole {
   id?: string;
   title: string;
   type: string;
+  description?: string;
+  /** CareerPath id that best prepares someone for this role, if any. */
+  pathId?: string;
   postedBy: string;
   postedByName: string;
   createdAt: Timestamp;

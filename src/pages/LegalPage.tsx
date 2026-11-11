@@ -17,7 +17,7 @@ export default function LegalPage() {
           </section>
           <section className="space-y-2">
             <h2 className="text-lg font-bold text-gray-900">How We Use Your Data</h2>
-            <p>Your profile data is sent to our AI service (Groq) to generate personalised career paths, course recommendations, and networking tips. We store the results in Firebase Firestore, secured to your account only.</p>
+            <p>Your first name and profile answers are sent to our AI service (Groq) to write personalised career guidance, CV and LinkedIn text, and mentor request drafts. If you choose to describe yourself in your own words during onboarding, that text is sent too, so it can be matched to the profile options. Recruiters who use AI to draft a role send its title and type. We store career and CV results in Firebase Firestore, secured to your account only; drafts are not stored unless you save or send them.</p>
           </section>
           <section className="space-y-2">
             <h2 className="text-lg font-bold text-gray-900">Data Security</h2>

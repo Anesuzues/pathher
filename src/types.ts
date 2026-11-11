@@ -23,14 +23,3 @@ export interface CareerPath {
   certificate: KnobzCertificate['number']; // KnobzToLearn certificate that qualifies you for this path
   icon: string;
 }
-
-export interface MelsoftProgramme {
-  id: string; // slug used in https://www.melsoftacademy.com/programme/<id>
-  title: string;
-  track: 'Accredited' | 'Bootcamp';
-  description: string;
-  duration: string;
-  cost: string;
-  accreditation?: string;
-  careerPaths: string[]; // CareerPath ids this programme suits
-}

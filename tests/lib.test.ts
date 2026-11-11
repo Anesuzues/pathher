@@ -1,17 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { rankCareerPaths, getPrimaryPath } from '../src/lib/recommend.ts';
-import { CAREER_PATHS, KNOBZ_CERTIFICATES, MELSOFT_PROGRAMMES, getCertificate } from '../src/constants.ts';
+import { CAREER_PATHS, KNOBZ_CERTIFICATES, getCertificate } from '../src/constants.ts';
 import { isValidEmail, isValidName, readJSON, readStringList } from '../src/lib/utils.ts';
 
-test('every career path points at a real certificate, and programmes at real paths', () => {
+test('every career path points at a real certificate', () => {
   const pathIds = CAREER_PATHS.map(p => p.id);
   assert.equal(new Set(pathIds).size, pathIds.length);
   for (const path of CAREER_PATHS) assert.ok(getCertificate(path.certificate), path.id);
   assert.equal(KNOBZ_CERTIFICATES.length, 4);
-  for (const programme of MELSOFT_PROGRAMMES) {
-    for (const id of programme.careerPaths) assert.ok(pathIds.includes(id), `${programme.id} -> ${id}`);
-  }
 });
 
 test('rankCareerPaths follows the answers', () => {
@@ -120,6 +117,110 @@ test('AI career steps never repeat the certificate step, and KnobzToLearn is spe
   assert.equal(r.whyItFits, 'Study on KnobzToLearn and KnobzToLearn.');
   // If every step was the certificate, there's nothing to show, so the reply is rejected.
   assert.equal(parseResult('career', JSON.stringify({ whyItFits: 'w', encouragement: 'e', nextSteps: ['Finish the certificate'] })), null);
+});
+
+test('AI career text covers the other recommended paths', async () => {
+  const { cleanInput, buildPrompt, parseResult } = await import('../api/ai.ts');
+  const input = cleanInput({
+    profile: { firstName: 'Thandi', interests: ['Science'] },
+    path: { title: 'AI-Enhanced Developer', skillsNeeded: ['Testing'] },
+    certificate: { number: 3, title: 'AI-Enhanced Developer', description: 'd' },
+    otherPaths: [{ title: 'Junior Software Developer', skillsNeeded: ['Programming'] }, { title: '' }],
+  })!;
+  assert.deepEqual(input.otherPaths?.map(p => p.title), ['Junior Software Developer']); // blank titles dropped
+  assert.match(buildPrompt('career', input), /1\. Junior Software Developer/);
+  assert.match(buildPrompt('career', input), /"otherFits": \["exactly 1 item/);
+  // Without other paths the prompt doesn't ask for them.
+  const solo = cleanInput({ path: { title: 'P' }, certificate: { number: 1, title: 'C' } })!;
+  assert.equal(solo.otherPaths, undefined);
+  assert.doesNotMatch(buildPrompt('career', solo), /otherFits/);
+
+  const r = parseResult('career', JSON.stringify({
+    whyItFits: 'w', encouragement: 'e', nextSteps: ['a'], otherFits: ['You like www.x.com science.'],
+  }))!;
+  assert.deepEqual(r.otherFits, ['You like  science.']);
+  // Old-style replies without otherFits are still accepted; the page falls back per card.
+  assert.deepEqual(parseResult('career', JSON.stringify({ whyItFits: 'w', encouragement: 'e', nextSteps: ['a'] }))!.otherFits, []);
+});
+
+test('AI mentor draft uses the typed field and needs both parts back', async () => {
+  const { cleanRequest, buildPrompt, parseResult } = await import('../api/ai.ts');
+  const input = cleanRequest('mentor', {
+    profile: { firstName: 'Thandi' },
+    path: { title: 'Junior Software Developer' },
+    certificate: { number: 2, title: 'Junior Software Developer', description: 'd' },
+    mentorField: 'web dev\u0000',
+  })!;
+  assert.equal(input.mentorField, 'web dev');
+  assert.match(buildPrompt('mentor', input), /field they want a mentor in is: "web dev"/);
+  assert.equal(parseResult('mentor', JSON.stringify({ field: 'Web development', message: '' })), null);
+  assert.deepEqual(parseResult('mentor', JSON.stringify({ field: 'Web development', message: 'Hi' })), { field: 'Web development', message: 'Hi' });
+});
+
+test('AI role draft only links to a listed career path', async () => {
+  const { cleanRequest, buildPrompt, parseResult } = await import('../api/ai.ts');
+  assert.equal(cleanRequest('role', { title: '  ' }), null);
+  const input = cleanRequest('role', { title: 'Junior Developer', type: 'Internship', paths: ['Junior Software Developer', 'AI Digital Professional'] })!;
+  assert.match(buildPrompt('role', input), /- Junior Software Developer/);
+  const reply = { summary: 's', responsibilities: ['r'], skills: ['k'] };
+  assert.equal(parseResult('role', JSON.stringify({ ...reply, pathTitle: 'junior software developer' }), input)!.pathTitle, 'Junior Software Developer');
+  assert.equal(parseResult('role', JSON.stringify({ ...reply, pathTitle: 'Astronaut' }), input)!.pathTitle, '');
+  assert.equal(parseResult('role', JSON.stringify({ ...reply, skills: [] }), input), null);
+});
+
+test('AI profile picks only offered options, at most 3 per category', async () => {
+  const { cleanRequest, parseResult } = await import('../api/ai.ts');
+  const options = { interests: ['Technology', 'Science', 'Law', 'Finance'], strengths: ['Writing'], goals: ['Stability'], workStyle: ['Hybrid'] };
+  assert.equal(cleanRequest('profile', { text: 'short', options }), null);
+  assert.equal(cleanRequest('profile', { text: 'I like building things a lot', options: { ...options, goals: [] } }), null);
+  const input = cleanRequest('profile', { text: 'I like building things a lot', options })!;
+  const r = parseResult('profile', JSON.stringify({
+    interests: ['technology', 'Science', 'Science', 'Law', 'Finance', 'Cooking'], strengths: ['Juggling'], goals: 'Stability', workStyle: ['Hybrid'],
+  }), input)!;
+  assert.deepEqual(r, { interests: ['Technology', 'Science', 'Law'], strengths: [], goals: [], workStyle: ['Hybrid'] });
+  assert.equal(parseResult('profile', JSON.stringify({ interests: ['Cooking'] }), input), null);
+  assert.equal(parseResult('profile', JSON.stringify({ interests: ['Science'] })), null); // no input, nothing to check against
+});
+
+test('LinkedIn text comes back without hashtags', async () => {
+  const { stripHashtags, parseResult } = await import('../api/ai.ts');
+  assert.equal(stripHashtags('Aspiring Developer #WomenInTech | Learning'), 'Aspiring Developer | Learning');
+  assert.equal(stripHashtags('I love C# and R&D #tech.\n\n#WomenInTech #SouthAfrica'), 'I love C# and R&D.');
+  assert.equal(stripHashtags('Para one.\n\n\n#a #b\n\nPara two.'), 'Para one.\n\nPara two.');
+  const r = parseResult('branding', JSON.stringify({
+    cvSummary: 's', cvSkills: ['k'], linkedinHeadline: 'Aspiring Dev #SA', linkedinAbout: 'About me.\n\n#WomenInTech #PathHer',
+  }))!;
+  assert.equal(r.linkedinHeadline, 'Aspiring Dev');
+  assert.equal(r.linkedinAbout, 'About me.');
+});
+
+test('readiness counts real steps, not just a finished profile', async () => {
+  const { computeReadiness } = await import('../src/lib/readiness.ts');
+  const profile = { fullName: 'Thandi M', email: 't@x.co', education: 'Graduate', interests: ['Tech'], strengths: ['Writing'], goals: ['Stability'], workStyle: ['Hybrid'] };
+  const none = () => null;
+
+  // Finished onboarding only: 1 of 7, where the old bar said 100%.
+  const fresh = computeReadiness({ doc: { profile }, local: none });
+  assert.equal(fresh.total, 7);
+  assert.equal(fresh.done, 1);
+  assert.equal(fresh.percent, 14);
+
+  const doneIds = (r: { steps: { id: string; done: boolean }[] }) => r.steps.filter(s => s.done).map(s => s.id);
+  const busy = computeReadiness({
+    doc: { profile, savedRecommendations: ['junior-software-developer'], aiBranding: { result: {} }, linkedinUpdated: true, joinedNetwork: true },
+    local: none,
+  });
+  assert.deepEqual(doneIds(busy), ['profile', 'path', 'cv', 'linkedin', 'network']);
+
+  // Before Firestore loads, this browser's records count.
+  const store: Record<string, string> = {
+    pathher_profile: JSON.stringify(profile), saved_recommendations: '["x"]', knobz_visited: 'true', mentor_requested: 'true',
+  };
+  assert.deepEqual(doneIds(computeReadiness({ doc: null, local: k => store[k] ?? null })), ['profile', 'path', 'knobz', 'mentor']);
+
+  // Half-filled or broken data never counts.
+  const broken = computeReadiness({ doc: { profile: { ...profile, goals: [] }, savedRecommendations: 'x' }, local: k => (k === 'pathher_profile' ? '{oops' : null) });
+  assert.equal(broken.done, 0);
 });
 
 test('AI daily limit: per-user per-day key and a sane default', async () => {

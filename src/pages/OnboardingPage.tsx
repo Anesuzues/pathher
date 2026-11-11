@@ -19,6 +19,7 @@ import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { cn, isValidEmail, isValidName, readJSON } from '../lib/utils';
+import { aiErrorMessage, requestAi } from '../lib/ai';
 
 type StepId = 'personal' | 'education' | 'interests' | 'strengths' | 'goals' | 'workStyle';
 
@@ -92,6 +93,10 @@ export default function OnboardingPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  // Optional free-text description that AI turns into the options below.
+  const [aboutText, setAboutText] = useState('');
+  const [isReading, setIsReading] = useState(false);
+  const [aboutNotice, setAboutNotice] = useState('');
   const { user, setHasProfile } = useAuth();
   const [data, setData] = useState<OnboardingData>({
     fullName: '',
@@ -155,6 +160,33 @@ export default function OnboardingPage() {
       if (current.length < 3) {
         setData({ ...data, [field]: [...current, option] });
       }
+    }
+  };
+
+  const handleDescribe = async () => {
+    if (aboutText.trim().length < 10 || isReading) return;
+    setAboutNotice('');
+    setIsReading(true);
+    try {
+      const picked = await requestAi('profile', { text: aboutText.trim(), options: OPTIONS });
+      // Only replace a category when the AI found something for it.
+      setData(d => ({
+        ...d,
+        interests: picked.interests.length ? picked.interests : d.interests,
+        strengths: picked.strengths.length ? picked.strengths : d.strengths,
+        goals: picked.goals.length ? picked.goals : d.goals,
+        workStyle: picked.workStyle.length ? picked.workStyle : d.workStyle,
+      }));
+      const missed = (['interests', 'strengths', 'goals', 'workStyle'] as const).filter(c => !picked[c].length);
+      setAboutNotice(missed.length
+        ? "We've picked some options from what you wrote. Choose the rest yourself as you go."
+        : "We've picked options from what you wrote. Check each step and change anything that isn't right.");
+    } catch (e) {
+      setAboutNotice(e instanceof Error && /\(502\)/.test(e.message)
+        ? "We couldn't match what you wrote to the options. Try adding a little more, or pick them yourself."
+        : aiErrorMessage(e));
+    } finally {
+      setIsReading(false);
     }
   };
 
@@ -350,6 +382,39 @@ export default function OnboardingPage() {
                       </button>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {step.id === 'interests' && (
+                <div className="p-4 md:p-5 bg-purple-50/60 border border-purple-100 rounded-2xl space-y-3">
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                      <Sparkles size={14} className="text-purple-600" /> Prefer to describe yourself?
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Write a few sentences about what you enjoy, what you're good at and what you want from work. AI will pick options for the next four steps, and you can change them.
+                    </p>
+                  </div>
+                  <textarea
+                    value={aboutText}
+                    onChange={e => setAboutText(e.target.value.slice(0, 1500))}
+                    rows={3}
+                    placeholder="e.g. I love figuring out how apps work and I'm the one friends ask to fix their phones. I'd like a stable job I can do from home..."
+                    className="w-full px-4 py-3 bg-white border-2 border-transparent focus:border-purple-500 rounded-2xl outline-none font-medium text-sm transition-all resize-none"
+                  />
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-[11px] text-gray-400">Don't include contact details or anything private.</p>
+                    <button
+                      type="button"
+                      onClick={handleDescribe}
+                      disabled={aboutText.trim().length < 10 || isReading}
+                      className="px-4 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition-all flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Sparkles size={12} className={isReading ? 'animate-pulse' : ''} />
+                      {isReading ? 'Reading…' : 'Pick options for me'}
+                    </button>
+                  </div>
+                  {aboutNotice && <p className="text-xs text-purple-700">{aboutNotice}</p>}
                 </div>
               )}
 

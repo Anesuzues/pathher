@@ -14,6 +14,7 @@ import { findCertificate, loadKnobzCertificates, useKnobzCertificates } from '..
 import { AiLimitError, buildAiInput, getAiResult, type AiInput, type CareerResult } from '../lib/ai';
 import { CareerPath } from '../types';
 import { rankCareerPaths } from '../lib/recommend';
+import { markReadinessStep } from '../lib/useReadiness';
 import { cn, readJSON, readStringList } from '../lib/utils';
 
 const iconMap: Record<string, any> = { Code, Briefcase, FileCheck, Bot };
@@ -25,7 +26,7 @@ export default function RecommendationsPage() {
   const [profileName, setProfileName] = useState('');
   const [interests, setInterests] = useState<string[]>([]);
   const [shareToast, setShareToast] = useState('');
-  // AI-written text for the best match only; the built-in text shows until it arrives.
+  // AI-written text for all recommended paths; the built-in text shows until it arrives.
   const [aiCareer, setAiCareer] = useState<CareerResult | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiInput, setAiInput] = useState<AiInput | null>(null);
@@ -75,7 +76,7 @@ export default function RecommendationsPage() {
       setRecommendations(ranked);
       setIsLoading(false);
 
-      // Personalise the best match. The rules above already chose the path and
+      // Personalise the recommendations. The rules above already chose the paths and
       // certificate; the AI only writes the text, so a failure changes nothing else.
       if (user && ranked[0]) {
         setAiLoading(true);
@@ -83,7 +84,7 @@ export default function RecommendationsPage() {
           const certs = await loadKnobzCertificates();
           const cert = findCertificate(certs, ranked[0].certificate);
           if (cert) {
-            const input = buildAiInput(profile, ranked[0], cert);
+            const input = buildAiInput(profile, ranked[0], cert, { otherPaths: ranked.slice(1) });
             if (!cancelled) setAiInput(input);
             const result = await getAiResult('career', input);
             if (!cancelled) setAiCareer(result);
@@ -123,7 +124,9 @@ export default function RecommendationsPage() {
   };
 
   const handleShare = async (path: CareerPath) => {
-    const text = `I'm exploring the ${path.title} career path on PathHer AI! ${path.whyItFits}`;
+    // The "why it fits" text speaks to the user as "you", so it doesn't belong in a post written as them.
+    const cert = getCertificate(path.certificate);
+    const text = `I'm exploring the ${path.title} career path on PathHer AI, working towards Certificate ${cert.number}: ${cert.title} on ${KNOBZ.name}.`;
     try {
       if (navigator.share) {
         await navigator.share({ title: `PathHer AI — ${path.title}`, text });
@@ -174,6 +177,8 @@ export default function RecommendationsPage() {
           const Icon = iconMap[path.icon] || Code;
           const isSaved = saved.includes(path.id);
           const cert = getCertificate(path.certificate);
+          // AI text for this card: the best match has its own fields, the others come from otherFits.
+          const aiFit = aiCareer ? (index === 0 ? aiCareer.whyItFits : aiCareer.otherFits?.[index - 1]) : undefined;
           return (
             <motion.div
               key={path.id}
@@ -220,19 +225,19 @@ export default function RecommendationsPage() {
                       <h3 className="font-bold text-gray-900 flex items-center gap-2">
                         <CheckCircle2 size={18} className="text-green-500" />
                         Why it fits you
-                        {index === 0 && aiCareer && (
+                        {aiFit && (
                           <span className="px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
                             <Sparkles size={10} /> Personalised
                           </span>
                         )}
                       </h3>
                       <p className="text-gray-600 leading-relaxed">
-                        {index === 0 && aiCareer ? aiCareer.whyItFits : path.whyItFits}
+                        {aiFit || path.whyItFits}
                       </p>
                       {index === 0 && aiCareer && (
                         <p className="text-purple-700 font-medium leading-relaxed">{aiCareer.encouragement}</p>
                       )}
-                      {index === 0 && aiLoading && !aiCareer && (
+                      {aiLoading && !aiFit && (
                         <p className="text-xs text-gray-400 flex items-center gap-1">
                           <Sparkles size={12} className="animate-pulse" /> Personalising this for you…
                         </p>
@@ -323,6 +328,7 @@ export default function RecommendationsPage() {
                   <div className="pt-4 flex flex-wrap gap-4">
                     <a
                       href={KNOBZ.signupUrl}
+                      onClick={() => markReadinessStep('knobz')}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="px-6 py-3 bg-purple-600 text-white rounded-xl font-bold text-sm hover:bg-purple-700 transition-all flex items-center gap-2"

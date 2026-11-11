@@ -2,25 +2,18 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import {
-  Users, MessageSquare, CheckCircle, Building2, TrendingUp, X, Send, Award, ExternalLink,
+  Users, MessageSquare, CheckCircle, Building2, TrendingUp, X, Send, Award, ExternalLink, Sparkles, Check, ChevronRight,
 } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
-import { loadUserField, saveUserField, saveMentorRequest } from '../lib/userdata';
+import { loadUserField, saveMentorRequest } from '../lib/userdata';
 import { useAuth } from '../contexts/AuthContext';
 import { KNOBZ } from '../constants';
 import { useKnobzCertificates } from '../lib/knobzCatalogue';
 import { getCachedPrimaryPath } from '../lib/recommend';
 import { readJSON } from '../lib/utils';
-
-function loadReadiness() {
-  const profile = readJSON<any>('pathher_profile', null);
-  const fields = profile ? [
-    profile.fullName, profile.email, profile.education,
-    profile.interests?.length, profile.strengths?.length, profile.goals?.length, profile.workStyle?.length,
-  ] : [];
-  const completion = Math.round((fields.filter(Boolean).length / 7) * 100);
-  return { completion, path: getCachedPrimaryPath() };
-}
+import { aiErrorMessage, buildAiInput, requestAi } from '../lib/ai';
+import { useReadiness } from '../lib/useReadiness';
+import { cn } from '../lib/utils';
 
 export default function EcosystemPage() {
   const [isJoined, setIsJoined] = useState(() => !!localStorage.getItem('joined_network'));
@@ -30,7 +23,10 @@ export default function EcosystemPage() {
   const [mentorSent, setMentorSent] = useState(false);
   const [isSendingMentor, setIsSendingMentor] = useState(false);
   const [mentorError, setMentorError] = useState('');
-  const [readiness] = useState(loadReadiness);
+  const [isDrafting, setIsDrafting] = useState(false);
+  const [draftNotice, setDraftNotice] = useState('');
+  const [primaryPath] = useState(getCachedPrimaryPath);
+  const readiness = useReadiness();
   const { getCertificate } = useKnobzCertificates();
   const { user } = useAuth();
 
@@ -47,8 +43,27 @@ export default function EcosystemPage() {
 
   const handleJoin = () => {
     setIsJoined(true);
-    localStorage.setItem('joined_network', 'true');
-    if (user) saveUserField(user.uid, 'joinedNetwork', true);
+    readiness.mark('network'); // saves joinedNetwork on the account and in this browser
+  };
+
+  // Drafts the field and message from the person's profile, path and certificate.
+  // They can edit the result before sending; nothing is sent automatically.
+  const handleDraftMentor = async () => {
+    const path = primaryPath;
+    const profile = readJSON<any>('pathher_profile', null);
+    if (!path || !profile || isDrafting) return;
+    setDraftNotice('');
+    setIsDrafting(true);
+    try {
+      const input = buildAiInput(profile, path, getCertificate(path.certificate), { mentorField });
+      const draft = await requestAi('mentor', input);
+      setMentorField(draft.field);
+      setMentorMessage(draft.message);
+    } catch (e) {
+      setDraftNotice(aiErrorMessage(e));
+    } finally {
+      setIsDrafting(false);
+    }
   };
 
   const handleMentorRequest = async () => {
@@ -70,6 +85,7 @@ export default function EcosystemPage() {
       return;
     }
     setMentorSent(true);
+    readiness.mark('mentor');
     setTimeout(() => {
       setShowMentorModal(false);
       setMentorSent(false);
@@ -120,7 +136,20 @@ export default function EcosystemPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-bold text-gray-700">Message (optional)</label>
+                      <div className="flex items-center justify-between gap-2">
+                        <label className="text-sm font-bold text-gray-700">Message (optional)</label>
+                        {primaryPath && (
+                          <button
+                            type="button"
+                            onClick={handleDraftMentor}
+                            disabled={isDrafting}
+                            className="text-xs font-bold text-pink-600 hover:text-pink-800 flex items-center gap-1 disabled:opacity-50"
+                          >
+                            <Sparkles size={12} className={isDrafting ? 'animate-pulse' : ''} />
+                            {isDrafting ? 'Writing…' : mentorMessage.trim() ? 'Rewrite with AI' : 'Write it for me'}
+                          </button>
+                        )}
+                      </div>
                       <textarea
                         value={mentorMessage}
                         onChange={e => setMentorMessage(e.target.value)}
@@ -130,6 +159,9 @@ export default function EcosystemPage() {
                       />
                     </div>
                   </div>
+                  {draftNotice && (
+                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">{draftNotice}</p>
+                  )}
                   {mentorError && (
                     <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">{mentorError}</p>
                   )}
@@ -232,26 +264,75 @@ export default function EcosystemPage() {
             <div className="space-y-5 md:space-y-6">
               <div className="space-y-2">
                 <div className="flex justify-between text-sm font-bold">
-                  <span>Profile Completion</span>
-                  <span className="text-purple-600">{readiness.completion}%</span>
+                  <span>Steps completed</span>
+                  <span className="text-purple-600">{readiness.done} of {readiness.total}</span>
                 </div>
                 <div className="h-3 bg-purple-50 rounded-full overflow-hidden">
-                  <div className="h-full bg-purple-600 rounded-full transition-all duration-700" style={{ width: `${readiness.completion}%` }}></div>
+                  <div className="h-full bg-purple-600 rounded-full transition-all duration-700" style={{ width: `${readiness.percent}%` }}></div>
                 </div>
               </div>
 
-              {readiness.path ? (
+              <ul className="divide-y divide-purple-50">
+                {readiness.steps.map(step => {
+                  const content = (
+                    <>
+                      <span className={cn(
+                        'w-6 h-6 rounded-full flex items-center justify-center shrink-0',
+                        step.done ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-300'
+                      )}>
+                        <Check size={14} />
+                      </span>
+                      <span className={cn('flex-1 text-sm', step.done ? 'text-gray-500 line-through decoration-gray-300' : 'text-gray-900 font-medium')}>
+                        {step.label}
+                      </span>
+                      {!step.done && (step.href
+                        ? <ExternalLink size={14} className="text-purple-400 shrink-0" />
+                        : <ChevronRight size={16} className="text-purple-400 shrink-0" />)}
+                    </>
+                  );
+                  const rowClass = 'flex items-center gap-3 py-3';
+                  if (step.done) return <li key={step.id} className={rowClass}>{content}</li>;
+                  return (
+                    <li key={step.id}>
+                      {step.href ? (
+                        <a
+                          href={step.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => step.id === 'knobz' && readiness.mark('knobz')}
+                          className={cn(rowClass, 'hover:text-purple-700')}
+                        >
+                          {content}
+                        </a>
+                      ) : step.id === 'mentor' ? (
+                        <button type="button" onClick={() => setShowMentorModal(true)} className={cn(rowClass, 'w-full text-left')}>
+                          {content}
+                        </button>
+                      ) : step.id === 'network' ? (
+                        <button type="button" onClick={handleJoin} className={cn(rowClass, 'w-full text-left')}>
+                          {content}
+                        </button>
+                      ) : (
+                        <Link to={step.to!} className={rowClass}>{content}</Link>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+
+              {primaryPath ? (
                 <div className="p-4 rounded-2xl bg-purple-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <Award size={20} className="text-purple-600 shrink-0" />
                     <p className="text-sm text-purple-900">
-                      <span className="font-bold">{readiness.path.title}</span>: earn Certificate {readiness.path.certificate} ({getCertificate(readiness.path.certificate).title}) on {KNOBZ.name}.
+                      <span className="font-bold">{primaryPath.title}</span>: earn Certificate {primaryPath.certificate} ({getCertificate(primaryPath.certificate).title}) on {KNOBZ.name}.
                     </p>
                   </div>
                   <a
                     href={KNOBZ.signupUrl}
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={() => readiness.mark('knobz')}
                     className="px-4 py-2 bg-purple-600 text-white rounded-xl font-bold text-xs hover:bg-purple-700 transition-all whitespace-nowrap text-center"
                   >
                     Sign Up

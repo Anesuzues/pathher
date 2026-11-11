@@ -9,20 +9,31 @@ import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { cn, readJSON, readStringList } from '../lib/utils';
 import { getPrimaryPath } from '../lib/recommend';
-import { CAREER_PATHS, KNOBZ } from '../constants';
+import { CAREER_PATHS, KNOBZ, getCertificate } from '../constants';
 import { findCertificate, loadKnobzCertificates } from '../lib/knobzCatalogue';
 import { AiLimitError, buildAiInput, getAiResult, type BrandingResult } from '../lib/ai';
 import type { KnobzCertificate } from '../types';
+import { useReadiness } from '../lib/useReadiness';
 
 const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+// Built-in CV and LinkedIn text, shown until the AI version loads or when the AI
+// is unavailable. Like the AI prompts, it only states what the person told us and
+// treats the path's skills as things they are learning.
+
+const joinList = (items: string[], fallback: string) =>
+  items.length <= 1 ? items[0] || fallback : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+
 function generateCV(profile: any, path: any, variation: number): string {
   const name = (profile.fullName || 'Your Name').toUpperCase();
   const email = profile.email || '';
+  const cert = getCertificate(path.certificate);
+  const strengths = joinList((profile.strengths || []).slice(0, 2).map((s: string) => s.toLowerCase()), 'a willingness to learn');
+  const interests = joinList((profile.interests || []).slice(0, 2), 'technology');
   const summaries = [
-    `Highly motivated ${profile.strengths?.[0] || 'professional'} with a passion for ${profile.interests?.[0] || 'technology'} and ${profile.interests?.[1] || 'innovation'}. Identified as a strong fit for ${path.title} through PathHer AI, with career goals including ${profile.goals?.[0] || 'excellence'}. Committed to continuous learning and contributing to South Africa's digital economy.`,
-    `Results-driven individual with strengths in ${(profile.strengths || []).join(', ') || 'multiple areas'}. Passionate about ${profile.interests?.[0] || 'making an impact'} and committed to ${profile.goals?.[0] || 'professional growth'}. Seeking to grow as a ${path.title} in South Africa's dynamic job market.`,
+    `Early-career candidate with strengths in ${strengths} and an interest in ${interests}. Building skills in ${joinList(path.skillsNeeded.slice(0, 2).map((s: string) => s.toLowerCase()), 'technology')} and working towards ${KNOBZ.name} Certificate ${cert.number}: ${cert.title}. Looking for a first role as a ${path.title} in South Africa.`,
+    `Working towards ${KNOBZ.name} Certificate ${cert.number}: ${cert.title}, with a focus on ${joinList(path.skillsNeeded.map((s: string) => s.toLowerCase()), 'technology')}. Brings ${strengths}, and an interest in ${interests}. Keen to start a career as a ${path.title}.`,
   ];
   return `${name}
 ${path.title} | South Africa${email ? '\n' + email : ''}
@@ -30,40 +41,51 @@ ${path.title} | South Africa${email ? '\n' + email : ''}
 SUMMARY
 ${summaries[variation % summaries.length]}
 
-SKILLS
+STRENGTHS
+${(profile.strengths || []).map((s: string) => `• ${s}`).join('\n') || '• Not provided yet'}
+
+SKILLS IN PROGRESS
 ${(path.skillsNeeded as string[]).map(s => `• ${s}`).join('\n')}
-${(profile.strengths || []).map((s: string) => `• ${s}`).join('\n')}
 
 EDUCATION
 • ${profile.education || 'Details not provided'}
 
+LEARNING & CERTIFICATION
+• ${KNOBZ.name}: Certificate ${cert.number}, ${cert.title} (in progress)
+
 CAREER INTERESTS
-${(profile.interests || []).map((i: string) => `• ${i}`).join('\n')}
-
-CAREER GOALS
-${(profile.goals || []).map((g: string) => `• ${g}`).join('\n')}
-
-PREFERRED WORK STYLE
-${(profile.workStyle || []).map((w: string) => `• ${w}`).join('\n')}
-
----
-Profile verified by PathHer AI`;
+${(profile.interests || []).map((i: string) => `• ${i}`).join('\n') || '• Not provided yet'}`;
 }
 
-function generateLinkedInBio(profile: any, path: any, variation: number): string {
-  const hasImpact = (profile.goals || []).includes('Social Impact');
-  const hasEntrepreneurship = (profile.goals || []).includes('Entrepreneurship');
-  const interests = (profile.interests || []).slice(0, 2).join(' & ') || 'Tech';
-  const strengths = (profile.strengths || []).slice(0, 2).join(' and ') || 'driven';
-  const skills = (path.skillsNeeded as string[]).slice(0, 2).join(' and ');
-  const workStyle = profile.workStyle?.[0] || 'collaborative';
+interface LinkedInText { headline: string; about: string }
 
-  const bios = [
-    `Aspiring ${path.title} | ${interests} enthusiast 🚀\n\n${strengths} are my superpowers. Recently mapped my career path through PathHer AI and actively building skills in ${skills}.\n\n${hasImpact ? 'Passionate about using my skills to drive social change in SA. ' : ''}${hasEntrepreneurship ? 'Entrepreneurial mindset, building for impact. ' : ''}Open to ${workStyle} opportunities in South Africa.\n\n#WomenInTech #SouthAfricaTech #${path.title.replace(/[\s/]+/g, '')} #PathHerAI`,
-    `🌟 Future ${path.title} from South Africa\n\nI believe in the power of ${profile.interests?.[0] || 'technology'} to transform lives. My strengths in ${(profile.strengths || []).slice(0, 3).join(', ') || 'various areas'} drive me to pursue excellence every day.\n\nCurrently on my PathHer AI journey — exploring ${path.title} and connecting with trailblazers in SA's ecosystem.\n\n${hasImpact ? '💡 Goal: Use skills for meaningful social impact.\n\n' : ''}Preferred work: ${(profile.workStyle || []).join(', ') || 'flexible environments'}\n\nLet's connect and grow together! 🤝\n\n#YoungWomenInTech #SACareer #PathHerAI`,
+// No hashtags or emojis: the person pastes this straight into their LinkedIn profile.
+function generateLinkedInBio(profile: any, path: any, variation: number): LinkedInText {
+  const cert = getCertificate(path.certificate);
+  const interests = joinList((profile.interests || []).slice(0, 2), 'technology');
+  const strengths = joinList((profile.strengths || []).slice(0, 2).map((s: string) => s.toLowerCase()), 'a willingness to learn');
+  const skills = joinList(path.skillsNeeded.slice(0, 2).map((s: string) => s.toLowerCase()), 'new skills');
+  const goals = (profile.goals || []).slice(0, 2).map((g: string) => g.toLowerCase());
+
+  const headline = `Aspiring ${path.title} | Working towards ${KNOBZ.name} Certificate ${cert.number}`;
+  const abouts = [
+    `I'm interested in ${interests}, and I'm working towards ${KNOBZ.name} Certificate ${cert.number}: ${cert.title}, where I'm learning ${skills}. People who know me would point to my ${strengths}.${goals.length ? ` I'm looking for work that offers ${joinList(goals, '')}.` : ''}
+
+I'm open to connecting with people working as a ${path.title} in South Africa, and to hearing about entry-level opportunities.`,
+    `I'm building a career as a ${path.title}. Right now I'm studying for ${KNOBZ.name} Certificate ${cert.number}: ${cert.title}, with a focus on ${skills}.
+
+My strengths are ${strengths}, and I'm especially interested in ${interests}.${goals.length ? ` In my next role I'm looking for ${joinList(goals, '')}.` : ''}
+
+If you work in this field in South Africa, I'd love to connect.`,
   ];
-  return bios[variation % bios.length];
+  return { headline, about: abouts[variation % abouts.length] };
 }
+
+// LinkedIn has no way for another site to fill in a profile, so we copy the text
+// and open the right place for the person to paste it.
+// /in/me/ always resolves to the signed-in member's own profile.
+const LINKEDIN_HEADLINE_URL = 'https://www.linkedin.com/in/me/edit/intro/';
+const LINKEDIN_PROFILE_URL = 'https://www.linkedin.com/in/me/';
 
 // CV built around AI-written text. Name, contact and education come straight from
 // the profile so the AI can't change facts; it only writes the summary and skills.
@@ -89,21 +111,8 @@ CAREER INTERESTS
 ${(profile.interests || []).map((i: string) => `• ${i}`).join('\n')}`;
 }
 
-function linkedinFromAi(ai: BrandingResult): string {
-  return `${ai.linkedinHeadline}\n\n${ai.linkedinAbout}`;
-}
-
-function calcProfileCompletion(profile: any): number {
-  const fields = [
-    profile.fullName?.length > 0,
-    profile.email?.length > 0,
-    profile.education?.length > 0,
-    (profile.interests || []).length > 0,
-    (profile.strengths || []).length > 0,
-    (profile.goals || []).length > 0,
-    (profile.workStyle || []).length > 0,
-  ];
-  return Math.round((fields.filter(Boolean).length / fields.length) * 100);
+function linkedinFromAi(ai: BrandingResult): LinkedInText {
+  return { headline: ai.linkedinHeadline, about: ai.linkedinAbout };
 }
 
 export default function BrandingPage() {
@@ -117,8 +126,11 @@ export default function BrandingPage() {
   const [profile, setProfile] = useState<any>(null);
   const [primaryPath, setPrimaryPath] = useState(CAREER_PATHS[0]);
   const [cvContent, setCvContent] = useState('');
-  const [linkedinBio, setLinkedinBio] = useState('');
-  const [completion, setCompletion] = useState(0);
+  const [linkedin, setLinkedinBio] = useState<LinkedInText>({ headline: '', about: '' });
+  // Shown on screen, copied and exported as one block; the LinkedIn buttons copy each part on its own.
+  const linkedinBio = linkedin.headline ? `HEADLINE\n${linkedin.headline}\n\nABOUT\n${linkedin.about}` : '';
+  const [linkedinNotice, setLinkedinNotice] = useState('');
+  const readiness = useReadiness();
   const [profileVisible, setProfileVisible] = useState(true);
   const [cert, setCert] = useState<KnobzCertificate | null>(null);
   // 'ai' = AI-written text is showing; 'template' = built-in text (AI unavailable or not yet loaded)
@@ -130,6 +142,7 @@ export default function BrandingPage() {
     setLinkedinBio(linkedinFromAi(ai));
     setSource('ai');
     setAiNotice('');
+    readiness.mark('cv');
   };
 
   useEffect(() => {
@@ -163,7 +176,6 @@ export default function BrandingPage() {
       setPrimaryPath(path);
       setCvContent(generateCV(prof, path, 0));
       setLinkedinBio(generateLinkedInBio(prof, path, 0));
-      setCompletion(calcProfileCompletion(prof));
 
       // Swap in AI-written text (saved copy if the answers haven't changed).
       if (!user || !prof.fullName) return;
@@ -244,8 +256,27 @@ export default function BrandingPage() {
   const hasProfile = profile && profile.fullName;
   const displayName = profile?.fullName || 'Your Profile';
 
+  // Copies one part of the LinkedIn text and opens LinkedIn where it goes.
+  const copyAndOpenLinkedIn = (part: 'headline' | 'about') => {
+    const text = linkedin[part];
+    if (!text) return;
+    // Start the copy before opening the tab: browsers only allow it while this page has focus.
+    const copiedOk = navigator.clipboard
+      ? navigator.clipboard.writeText(text).then(() => true, () => false)
+      : Promise.resolve(false);
+    window.open(part === 'headline' ? LINKEDIN_HEADLINE_URL : LINKEDIN_PROFILE_URL, '_blank', 'noopener,noreferrer');
+    copiedOk.then(ok => setLinkedinNotice(!ok
+      ? "Your browser blocked copying. Select the text above, copy it, then paste it into LinkedIn."
+      : part === 'headline'
+        ? 'Headline copied. In LinkedIn, select the Headline box, paste (Ctrl+V, or long-press on a phone) and save.'
+        : 'About copied. On your LinkedIn profile, press the pencil next to About (or "Add profile section", then About), paste and save.'));
+    readiness.mark('linkedin');
+  };
+
   const handleConnectLinkedIn = () => {
-    window.open('https://www.linkedin.com/profile/edit', '_blank', 'noopener,noreferrer');
+    setActiveTab('linkedin');
+    // Wait for the tab to render, then bring the LinkedIn steps into view.
+    setTimeout(() => document.getElementById('linkedin-steps')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
   };
 
   const handleToggleVisibility = async () => {
@@ -257,13 +288,6 @@ export default function BrandingPage() {
       } catch { /* non-fatal */ }
     }
   };
-
-  const nextSteps = [
-    { label: 'Complete onboarding', done: hasProfile },
-    { label: 'Generate CV summary', done: cvContent.length > 0 },
-    { label: 'Update LinkedIn profile', done: false },
-    { label: 'Join Talent Network', done: !!localStorage.getItem('joined_network') },
-  ];
 
   return (
     <div className="space-y-10 pb-12">
@@ -297,15 +321,15 @@ export default function BrandingPage() {
               </div>
               <div className="flex gap-2">
                 {hasProfile && user?.emailVerified && <span className="px-3 py-1 bg-green-50 text-green-600 rounded-full text-[10px] font-bold uppercase tracking-wider">Verified Profile</span>}
-                <span className="px-3 py-1 bg-purple-50 text-purple-600 rounded-full text-[10px] font-bold uppercase tracking-wider">{completion}% Ready</span>
+                <span className="px-3 py-1 bg-purple-50 text-purple-600 rounded-full text-[10px] font-bold uppercase tracking-wider">{readiness.done} of {readiness.total} steps</span>
               </div>
             </div>
 
             <div className="space-y-4 pt-4 border-t border-purple-50">
               <h3 className="font-bold text-sm text-gray-400 uppercase tracking-wider">Next Steps</h3>
               <div className="space-y-3">
-                {nextSteps.map((step, i) => (
-                  <div key={i} className="flex items-center gap-3">
+                {readiness.steps.map(step => (
+                  <div key={step.id} className="flex items-center gap-3">
                     <div className={cn(
                       'w-5 h-5 rounded-full flex items-center justify-center',
                       step.done ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-300'
@@ -424,6 +448,42 @@ export default function BrandingPage() {
                   </pre>
                 </motion.div>
               </AnimatePresence>
+
+              {activeTab === 'linkedin' && linkedin.headline && (
+                <div id="linkedin-steps" className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4 md:p-5 space-y-4">
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold text-gray-900">Add this to your LinkedIn profile</p>
+                    <p className="text-xs text-gray-500">
+                      Each button copies that part and opens LinkedIn. Paste it in and save. Sign in to LinkedIn first if it asks.
+                    </p>
+                  </div>
+                  {([
+                    { part: 'headline', step: '1', title: 'Headline', hint: 'Opens the edit box for your name and headline.' },
+                    { part: 'about', step: '2', title: 'About', hint: 'Opens your profile. Press the pencil next to About.' },
+                  ] as const).map(({ part, step, title, hint }) => (
+                    <div key={part} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0">{step}</span>
+                        <div>
+                          <p className="text-sm font-bold text-gray-800">{title}</p>
+                          <p className="text-xs text-gray-500">{hint}</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => copyAndOpenLinkedIn(part)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2 shrink-0"
+                      >
+                        <Copy size={14} />
+                        Copy {title} & open LinkedIn
+                      </button>
+                    </div>
+                  ))}
+                  {linkedinNotice && (
+                    <p className="text-xs text-blue-800 bg-white border border-blue-100 rounded-xl px-3 py-2">{linkedinNotice}</p>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="px-6 md:px-8 py-5 md:py-6 bg-purple-50 border-t border-purple-100 flex flex-col sm:flex-row items-center justify-between gap-4">
