@@ -3,14 +3,15 @@ import { motion } from 'motion/react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Code, Briefcase, FileCheck, Bot,
-  ArrowRight, CheckCircle2, Bookmark, Share2, Sparkles, Award, ExternalLink
+  ArrowRight, CheckCircle2, Bookmark, Share2, Sparkles, Award, ExternalLink, Users, Lightbulb
 } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { saveUserField } from '../lib/userdata';
 import { useAuth } from '../contexts/AuthContext';
 import { CAREER_PATHS, KNOBZ } from '../constants';
-import { useKnobzCertificates } from '../lib/knobzCatalogue';
+import { findCertificate, loadKnobzCertificates, useKnobzCertificates } from '../lib/knobzCatalogue';
+import { buildAiInput, getAiResult, type CareerResult } from '../lib/ai';
 import { CareerPath } from '../types';
 import { rankCareerPaths } from '../lib/recommend';
 import { cn, readJSON, readStringList } from '../lib/utils';
@@ -24,6 +25,9 @@ export default function RecommendationsPage() {
   const [profileName, setProfileName] = useState('');
   const [interests, setInterests] = useState<string[]>([]);
   const [shareToast, setShareToast] = useState('');
+  // AI-written text for the best match only; the built-in text shows until it arrives.
+  const [aiCareer, setAiCareer] = useState<CareerResult | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
   const { getCertificate } = useKnobzCertificates();
@@ -65,8 +69,27 @@ export default function RecommendationsPage() {
         setSaved(readStringList('saved_recommendations'));
       }
 
-      setRecommendations(rankCareerPaths(profile).slice(0, 3));
+      const ranked = rankCareerPaths(profile).slice(0, 3);
+      setRecommendations(ranked);
       setIsLoading(false);
+
+      // Personalise the best match. The rules above already chose the path and
+      // certificate; the AI only writes the text, so a failure changes nothing else.
+      if (user && ranked[0]) {
+        setAiLoading(true);
+        try {
+          const certs = await loadKnobzCertificates();
+          const cert = findCertificate(certs, ranked[0].certificate);
+          if (cert) {
+            const result = await getAiResult('career', buildAiInput(profile, ranked[0], cert));
+            if (!cancelled) setAiCareer(result);
+          }
+        } catch (e) {
+          console.warn('AI personalisation unavailable, showing built-in text:', e);
+        } finally {
+          if (!cancelled) setAiLoading(false);
+        }
+      }
     };
 
     load();
@@ -179,9 +202,59 @@ export default function RecommendationsPage() {
                       <h3 className="font-bold text-gray-900 flex items-center gap-2">
                         <CheckCircle2 size={18} className="text-green-500" />
                         Why it fits you
+                        {index === 0 && aiCareer && (
+                          <span className="px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                            <Sparkles size={10} /> Personalised
+                          </span>
+                        )}
                       </h3>
-                      <p className="text-gray-600 leading-relaxed">{path.whyItFits}</p>
+                      <p className="text-gray-600 leading-relaxed">
+                        {index === 0 && aiCareer ? aiCareer.whyItFits : path.whyItFits}
+                      </p>
+                      {index === 0 && aiCareer && (
+                        <p className="text-purple-700 font-medium leading-relaxed">{aiCareer.encouragement}</p>
+                      )}
+                      {index === 0 && aiLoading && !aiCareer && (
+                        <p className="text-xs text-gray-400 flex items-center gap-1">
+                          <Sparkles size={12} className="animate-pulse" /> Personalising this for you…
+                        </p>
+                      )}
                     </div>
+
+                    {index === 0 && aiCareer && (
+                      <div className="space-y-4 rounded-2xl bg-purple-50/60 border border-purple-100 p-5">
+                        <div className="space-y-2">
+                          <h3 className="font-bold text-gray-900">Your next steps</h3>
+                          <ol className="space-y-2 text-sm text-gray-700 list-decimal list-inside">
+                            {/* KnobzToLearn always comes first, and is written here rather than by the AI. */}
+                            <li>
+                              <span className="font-semibold">
+                                Sign up on {KNOBZ.name} and start Certificate 1: {getCertificate(1).title}
+                              </span>
+                              {cert.number > 1 && `, then work up to Certificate ${cert.number}: ${cert.title}`}.
+                            </li>
+                            {aiCareer.nextSteps.map(step => <li key={step}>{step}</li>)}
+                          </ol>
+                        </div>
+                        {aiCareer.networkingTip && (
+                          <div className="space-y-1">
+                            <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
+                              <Users size={16} className="text-purple-600" /> Networking tip
+                            </h3>
+                            <p className="text-sm text-gray-600 leading-relaxed">{aiCareer.networkingTip}</p>
+                          </div>
+                        )}
+                        {aiCareer.careerInsight && (
+                          <div className="space-y-1">
+                            <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
+                              <Lightbulb size={16} className="text-pink-500" /> Your edge
+                            </h3>
+                            <p className="text-sm text-gray-600 leading-relaxed">{aiCareer.careerInsight}</p>
+                          </div>
+                        )}
+                        <p className="text-[11px] text-gray-400">Written by AI from your answers. Check anything before you rely on it.</p>
+                      </div>
+                    )}
 
                     <div className="grid sm:grid-cols-2 gap-6">
                       <div className="space-y-3">

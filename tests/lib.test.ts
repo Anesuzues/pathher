@@ -75,3 +75,36 @@ test('parseCertificateRows keeps good rows and rejects junk', async () => {
   assert.equal(findCertificate(rows!, 3)?.title, KNOBZ_CERTIFICATES[2].title);
   assert.equal(findCertificate(rows!, 1)?.title, 'New title');
 });
+
+test('AI input is cleaned, prompts keep KnobzToLearn first, and replies are checked', async () => {
+  const { cleanInput, buildPrompt, parseResult } = await import('../api/ai.ts');
+  assert.equal(cleanInput(null), null);
+  assert.equal(cleanInput({ path: {}, certificate: {} }), null);
+
+  const input = cleanInput({
+    profile: { firstName: 'Thandi\u0000', education: 'University Graduate', interests: ['Technology', 5], strengths: ['Writing'], goals: [], workStyle: [] },
+    path: { title: 'AI-Enhanced Developer', skillsNeeded: ['Prompt Engineering'] },
+    certificate: { number: 99, title: 'AI-Enhanced Developer', description: 'Testing and docs.' },
+  })!;
+  assert.equal(input.profile.firstName, 'Thandi');
+  assert.deepEqual(input.profile.interests, ['Technology']);
+  assert.equal(input.certificate.number, 1); // out-of-range numbers fall back to 1
+
+  for (const task of ['career', 'branding'] as const) {
+    const prompt = buildPrompt(task, input);
+    assert.match(prompt, /KnobzToLearn certificate for this path: Certificate 1: AI-Enhanced Developer/);
+    assert.match(prompt, /Interests: Technology/);
+  }
+
+  assert.equal(parseResult('career', 'not json'), null);
+  assert.equal(parseResult('career', JSON.stringify({ whyItFits: 'x', encouragement: 'y', nextSteps: [] })), null);
+  const career = parseResult('career', JSON.stringify({
+    whyItFits: 'Fits you. See https://example.com now', encouragement: 'Go!', nextSteps: ['a', 'b', 'c', 'd'],
+    networkingTip: 'tip', careerInsight: 'edge',
+  })) as { whyItFits: string; nextSteps: string[] };
+  assert.equal(career.whyItFits, 'Fits you. See  now'); // links are stripped
+  assert.equal(career.nextSteps.length, 3);
+
+  assert.equal(parseResult('branding', JSON.stringify({ cvSummary: 's', cvSkills: [], linkedinHeadline: 'h', linkedinAbout: 'a' })), null);
+  assert.ok(parseResult('branding', JSON.stringify({ cvSummary: 's', cvSkills: ['k'], linkedinHeadline: 'h', linkedinAbout: 'a' })));
+});

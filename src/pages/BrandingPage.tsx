@@ -9,7 +9,10 @@ import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { cn, readJSON, readStringList } from '../lib/utils';
 import { getPrimaryPath } from '../lib/recommend';
-import { CAREER_PATHS } from '../constants';
+import { CAREER_PATHS, KNOBZ } from '../constants';
+import { findCertificate, loadKnobzCertificates } from '../lib/knobzCatalogue';
+import { buildAiInput, getAiResult, type BrandingResult } from '../lib/ai';
+import type { KnobzCertificate } from '../types';
 
 const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -62,6 +65,34 @@ function generateLinkedInBio(profile: any, path: any, variation: number): string
   return bios[variation % bios.length];
 }
 
+// CV built around AI-written text. Name, contact and education come straight from
+// the profile so the AI can't change facts; it only writes the summary and skills.
+function cvFromAi(profile: any, path: any, cert: KnobzCertificate, ai: BrandingResult): string {
+  const name = (profile.fullName || 'Your Name').toUpperCase();
+  const email = profile.email || '';
+  return `${name}
+${path.title} | South Africa${email ? '\n' + email : ''}
+
+SUMMARY
+${ai.cvSummary}
+
+KEY SKILLS
+${ai.cvSkills.map(s => `• ${s}`).join('\n')}
+
+EDUCATION
+• ${profile.education || 'Details not provided'}
+
+LEARNING & CERTIFICATION
+• ${KNOBZ.name}: Certificate ${cert.number}, ${cert.title} (in progress)
+
+CAREER INTERESTS
+${(profile.interests || []).map((i: string) => `• ${i}`).join('\n')}`;
+}
+
+function linkedinFromAi(ai: BrandingResult): string {
+  return `${ai.linkedinHeadline}\n\n${ai.linkedinAbout}`;
+}
+
 function calcProfileCompletion(profile: any): number {
   const fields = [
     profile.fullName?.length > 0,
@@ -89,6 +120,17 @@ export default function BrandingPage() {
   const [linkedinBio, setLinkedinBio] = useState('');
   const [completion, setCompletion] = useState(0);
   const [profileVisible, setProfileVisible] = useState(true);
+  const [cert, setCert] = useState<KnobzCertificate | null>(null);
+  // 'ai' = AI-written text is showing; 'template' = built-in text (AI unavailable or not yet loaded)
+  const [source, setSource] = useState<'ai' | 'template'>('template');
+  const [aiNotice, setAiNotice] = useState('');
+
+  const showAi = (prof: any, path: any, c: KnobzCertificate, ai: BrandingResult) => {
+    setCvContent(cvFromAi(prof, path, c, ai));
+    setLinkedinBio(linkedinFromAi(ai));
+    setSource('ai');
+    setAiNotice('');
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -122,11 +164,28 @@ export default function BrandingPage() {
       setCvContent(generateCV(prof, path, 0));
       setLinkedinBio(generateLinkedInBio(prof, path, 0));
       setCompletion(calcProfileCompletion(prof));
+
+      // Swap in AI-written text (saved copy if the answers haven't changed).
+      if (!user || !prof.fullName) return;
+      const c = findCertificate(await loadKnobzCertificates(), path.certificate);
+      if (!c || cancelled) return;
+      setCert(c);
+      setIsGenerating(true);
+      try {
+        const ai = await getAiResult('branding', buildAiInput(prof, path, c));
+        if (!cancelled) showAi(prof, path, c, ai);
+      } catch (e) {
+        console.warn('AI branding unavailable, showing built-in text:', e);
+      } finally {
+        if (!cancelled) setIsGenerating(false);
+      }
     };
+    let cancelled = false;
     load();
+    return () => { cancelled = true; };
   }, [user]);
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!profile?.fullName || profile.fullName.trim().length < 2) {
       setValidationError('Please complete your profile (at least name and interests) before generating branding materials.');
       return;
@@ -134,12 +193,22 @@ export default function BrandingPage() {
     setValidationError('');
     setIsGenerating(true);
     const next = variation + 1;
-    setTimeout(() => {
-      setVariation(next);
-      setCvContent(generateCV(profile, primaryPath, next));
-      setLinkedinBio(generateLinkedInBio(profile, primaryPath, next));
-      setIsGenerating(false);
-    }, 1500);
+    setVariation(next);
+    if (user && cert) {
+      try {
+        const ai = await getAiResult('branding', buildAiInput(profile, primaryPath, cert), { regenerate: true });
+        showAi(profile, primaryPath, cert, ai);
+        setIsGenerating(false);
+        return;
+      } catch (e) {
+        console.warn('AI branding unavailable, using built-in text:', e);
+        setAiNotice('The AI writer is unavailable right now, so this is the standard version. Try again in a minute.');
+      }
+    }
+    setCvContent(generateCV(profile, primaryPath, next));
+    setLinkedinBio(generateLinkedInBio(profile, primaryPath, next));
+    setSource('template');
+    setIsGenerating(false);
   };
 
   const handleCopy = () => {
@@ -356,7 +425,13 @@ export default function BrandingPage() {
                 <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-purple-600 shadow-sm">
                   <Sparkles size={20} />
                 </div>
-                <p className="text-sm text-purple-900 font-medium">AI-optimized for South African applicant tracking systems (ATS).</p>
+                <p className="text-sm text-purple-900 font-medium">
+                  {aiNotice || (source === 'ai'
+                    ? 'Written by AI from your answers. Read it through and correct anything before you use it.'
+                    : isGenerating
+                      ? 'Personalising with AI…'
+                      : 'Standard version based on your answers. Press Regenerate Branding for an AI-written one.')}
+                </p>
               </div>
               <button
                 onClick={handleExportWord}
