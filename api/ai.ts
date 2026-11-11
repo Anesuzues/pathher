@@ -118,7 +118,7 @@ Explain to this person, speaking to them as "you", why this path suits them and 
 {
   "whyItFits": "2-3 sentences linking at least two of their specific interests, strengths or goals to this path",
   "encouragement": "one warm sentence",
-  "nextSteps": ["2 or 3 short, practical actions they can take alongside the certificate, each under 25 words. Do not repeat signing up for the certificate; that step is shown separately."],
+  "nextSteps": ["2 or 3 short, practical actions they can take alongside the certificate, each under 25 words. Do not repeat signing up for the certificate; that step is shown separately. Do not name any website, platform, app or community other than LinkedIn (for example, say 'free coding exercises', not a site name)."],
   "networkingTip": "one specific, practical networking tip for someone starting out in South Africa",
   "careerInsight": "one or two sentences on how their particular combination of traits gives them an edge in this path"
 }`;
@@ -137,7 +137,10 @@ Write CV and LinkedIn text for this person. They are early in their career, so b
 // ---------- output checking ----------
 
 const URL_RE = /\b(?:https?:\/\/|www\.)\S+/gi;
-const out = (v: unknown, max: number) => (typeof v === 'string' ? v.replace(URL_RE, '').trim().slice(0, max) : '');
+// The model sometimes misspells the partner's name ("KnobdToLearn", "Knobz To Learn").
+const KNOBZ_RE = /\bKn?ob[a-z]{0,2}\s?To\s?Learn\b/gi;
+const out = (v: unknown, max: number) =>
+  typeof v === 'string' ? v.replace(URL_RE, '').replace(KNOBZ_RE, 'KnobzToLearn').trim().slice(0, max) : '';
 const outList = (v: unknown, maxItems: number, maxLen: number) =>
   Array.isArray(v) ? v.map(x => out(x, maxLen)).filter(Boolean).slice(0, maxItems) : [];
 
@@ -155,7 +158,8 @@ export function parseResult(task: AiTask, text: string): CareerResult | Branding
     const r: CareerResult = {
       whyItFits: out(data.whyItFits, 800),
       encouragement: out(data.encouragement, 300),
-      nextSteps: outList(data.nextSteps, 3, 200),
+      // The page shows the KnobzToLearn step itself, so drop any the model repeats.
+      nextSteps: outList(data.nextSteps, 4, 200).filter(s => !/certificate|knobztolearn/i.test(s)).slice(0, 3),
       networkingTip: out(data.networkingTip, 400),
       careerInsight: out(data.careerInsight, 500),
     };

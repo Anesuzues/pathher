@@ -108,3 +108,16 @@ test('AI input is cleaned, prompts keep KnobzToLearn first, and replies are chec
   assert.equal(parseResult('branding', JSON.stringify({ cvSummary: 's', cvSkills: [], linkedinHeadline: 'h', linkedinAbout: 'a' })), null);
   assert.ok(parseResult('branding', JSON.stringify({ cvSummary: 's', cvSkills: ['k'], linkedinHeadline: 'h', linkedinAbout: 'a' })));
 });
+
+test('AI career steps never repeat the certificate step, and KnobzToLearn is spelled right', async () => {
+  const { parseResult } = await import('../api/ai.ts');
+  const r = parseResult('career', JSON.stringify({
+    whyItFits: 'Study on KnobdToLearn and Knobz To Learn.', encouragement: 'Go!',
+    nextSteps: ['Complete Certificate 2 on KnobzToLearn', 'Build a portfolio site', 'Practise daily'],
+    networkingTip: 't', careerInsight: 'e',
+  })) as { whyItFits: string; nextSteps: string[] };
+  assert.deepEqual(r.nextSteps, ['Build a portfolio site', 'Practise daily']);
+  assert.equal(r.whyItFits, 'Study on KnobzToLearn and KnobzToLearn.');
+  // If every step was the certificate, there's nothing to show, so the reply is rejected.
+  assert.equal(parseResult('career', JSON.stringify({ whyItFits: 'w', encouragement: 'e', nextSteps: ['Finish the certificate'] })), null);
+});
