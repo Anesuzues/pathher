@@ -3,7 +3,10 @@ import { auth, db } from './firebase';
 import type { CareerPath, KnobzCertificate } from '../types';
 import type { AiInput, AiTask, BrandingResult, CareerResult } from '../../api/ai';
 
-export type { BrandingResult, CareerResult };
+export type { AiInput, BrandingResult, CareerResult };
+
+/** The person has used up today's AI generations; the message is safe to show them. */
+export class AiLimitError extends Error {}
 
 // Client side of /api/ai. Results are saved on the user's Firestore document
 // with a key built from the inputs, so the model only runs again when the
@@ -28,9 +31,14 @@ export function buildAiInput(profile: any, path: CareerPath, cert: KnobzCertific
   };
 }
 
+// Bump when the prompts or the reply checks change, so results saved under the
+// old version are regenerated once instead of being shown forever.
+// v2: next steps no longer repeat the certificate or name other platforms.
+export const AI_VERSION = 2;
+
 /** Stable key for an input, so a saved result is reused only for the same answers. */
 export function inputKey(task: AiTask, input: AiInput): string {
-  const s = JSON.stringify([task, input]);
+  const s = JSON.stringify([AI_VERSION, task, input]);
   let h = 5381;
   for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
   return `${task}-${(h >>> 0).toString(36)}`;
@@ -68,6 +76,11 @@ export async function getAiResult<T extends AiTask>(
     body: JSON.stringify({ task, input }),
     signal: AbortSignal.timeout(30000),
   });
+  if (res.status === 429) {
+    const { limit } = (await res.json().catch(() => ({}))) as { limit?: number };
+    const used = limit ? `all ${limit} of today's AI rewrites` : "today's AI rewrites";
+    throw new AiLimitError(`You've used ${used}. Your current text is saved, and you can rewrite again tomorrow.`);
+  }
   if (!res.ok) throw new Error(`AI request failed (${res.status})`);
   const { result } = (await res.json()) as { result: ResultFor<T> };
 

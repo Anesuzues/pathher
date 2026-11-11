@@ -212,18 +212,59 @@ export async function generate(task: AiTask, input: AiInput, apiKey: string) {
 
 // ---------- handler ----------
 
-async function verifyFirebaseToken(idToken: string): Promise<boolean> {
+/** Returns the Firebase user id for a valid ID token, or null. */
+async function verifyFirebaseToken(idToken: string): Promise<string | null> {
   const firebaseApiKey = process.env.VITE_FIREBASE_API_KEY;
-  if (!firebaseApiKey) return false;
+  if (!firebaseApiKey) return null;
   try {
     const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${firebaseApiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ idToken }),
     });
-    return r.ok;
+    if (!r.ok) return null;
+    const data = (await r.json()) as { users?: { localId?: string }[] };
+    return data.users?.[0]?.localId ?? null;
   } catch {
-    return false;
+    return null;
+  }
+}
+
+// ---------- daily limit ----------
+// Counts AI generations per user per UTC day in Upstash Redis (REST API, so no
+// extra dependency). Saved results are served from Firestore by the browser
+// and never reach this endpoint, so only real generations count.
+// The Vercel Upstash integration sets KV_REST_API_*; a direct Upstash setup
+// uses UPSTASH_REDIS_REST_*. Without either, or if Redis is down, requests are
+// allowed: a Redis outage shouldn't switch the AI off for everyone.
+
+export const DAILY_LIMIT = () => {
+  const n = Number(process.env.AI_DAILY_LIMIT);
+  return Number.isInteger(n) && n > 0 ? n : 10;
+};
+
+export function usageKey(uid: string, now = new Date()): string {
+  return `ai-usage:${uid}:${now.toISOString().slice(0, 10)}`;
+}
+
+/** Records one generation and returns the count for today, or null if not tracked. */
+async function countGeneration(uid: string): Promise<number | null> {
+  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+  try {
+    const key = usageKey(uid);
+    const r = await fetch(`${url.replace(/\/$/, '')}/pipeline`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify([['INCR', key], ['EXPIRE', key, String(2 * 24 * 3600)]]),
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!r.ok) return null;
+    const [incr] = (await r.json()) as { result?: number }[];
+    return typeof incr?.result === 'number' ? incr.result : null;
+  } catch {
+    return null;
   }
 }
 
@@ -232,7 +273,8 @@ export default async function handler(req: Req, res: Res) {
 
   const auth = req.headers['authorization'];
   const idToken = typeof auth === 'string' && auth.startsWith('Bearer ') ? auth.slice(7) : '';
-  if (!idToken || !(await verifyFirebaseToken(idToken))) return res.status(401).json({ error: 'Unauthorized' });
+  const uid = idToken ? await verifyFirebaseToken(idToken) : null;
+  if (!uid) return res.status(401).json({ error: 'Unauthorized' });
 
   const body = (req.body ?? {}) as { task?: unknown; input?: unknown };
   const task = body.task === 'career' || body.task === 'branding' ? body.task : null;
@@ -241,6 +283,11 @@ export default async function handler(req: Req, res: Res) {
 
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) return res.status(503).json({ error: 'AI is not configured' });
+
+  const limit = DAILY_LIMIT();
+  const used = await countGeneration(uid);
+  if (used === null) console.warn('AI daily limit not enforced: usage store not configured or unreachable');
+  else if (used > limit) return res.status(429).json({ error: 'Daily AI limit reached', limit });
 
   try {
     const result = await generate(task, input, apiKey);

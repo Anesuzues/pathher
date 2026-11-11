@@ -11,7 +11,7 @@ import { cn, readJSON, readStringList } from '../lib/utils';
 import { getPrimaryPath } from '../lib/recommend';
 import { CAREER_PATHS, KNOBZ } from '../constants';
 import { findCertificate, loadKnobzCertificates } from '../lib/knobzCatalogue';
-import { buildAiInput, getAiResult, type BrandingResult } from '../lib/ai';
+import { AiLimitError, buildAiInput, getAiResult, type BrandingResult } from '../lib/ai';
 import type { KnobzCertificate } from '../types';
 
 const escapeHtml = (s: string) =>
@@ -202,6 +202,12 @@ export default function BrandingPage() {
         return;
       } catch (e) {
         console.warn('AI branding unavailable, using built-in text:', e);
+        if (e instanceof AiLimitError) {
+          // Keep the AI version they already have rather than swapping in the template.
+          setAiNotice(e.message);
+          setIsGenerating(false);
+          return;
+        }
         setAiNotice('The AI writer is unavailable right now, so this is the standard version. Try again in a minute.');
       }
     }

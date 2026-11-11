@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Code, Briefcase, FileCheck, Bot,
-  ArrowRight, CheckCircle2, Bookmark, Share2, Sparkles, Award, ExternalLink, Users, Lightbulb
+  ArrowRight, CheckCircle2, Bookmark, Share2, Sparkles, Award, ExternalLink, Users, Lightbulb, RefreshCw
 } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -11,7 +11,7 @@ import { saveUserField } from '../lib/userdata';
 import { useAuth } from '../contexts/AuthContext';
 import { CAREER_PATHS, KNOBZ } from '../constants';
 import { findCertificate, loadKnobzCertificates, useKnobzCertificates } from '../lib/knobzCatalogue';
-import { buildAiInput, getAiResult, type CareerResult } from '../lib/ai';
+import { AiLimitError, buildAiInput, getAiResult, type AiInput, type CareerResult } from '../lib/ai';
 import { CareerPath } from '../types';
 import { rankCareerPaths } from '../lib/recommend';
 import { cn, readJSON, readStringList } from '../lib/utils';
@@ -28,6 +28,8 @@ export default function RecommendationsPage() {
   // AI-written text for the best match only; the built-in text shows until it arrives.
   const [aiCareer, setAiCareer] = useState<CareerResult | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiInput, setAiInput] = useState<AiInput | null>(null);
+  const [aiNotice, setAiNotice] = useState('');
   const { user } = useAuth();
   const navigate = useNavigate();
   const { getCertificate } = useKnobzCertificates();
@@ -81,11 +83,14 @@ export default function RecommendationsPage() {
           const certs = await loadKnobzCertificates();
           const cert = findCertificate(certs, ranked[0].certificate);
           if (cert) {
-            const result = await getAiResult('career', buildAiInput(profile, ranked[0], cert));
+            const input = buildAiInput(profile, ranked[0], cert);
+            if (!cancelled) setAiInput(input);
+            const result = await getAiResult('career', input);
             if (!cancelled) setAiCareer(result);
           }
         } catch (e) {
           console.warn('AI personalisation unavailable, showing built-in text:', e);
+          if (!cancelled && e instanceof AiLimitError) setAiNotice(e.message);
         } finally {
           if (!cancelled) setAiLoading(false);
         }
@@ -96,6 +101,19 @@ export default function RecommendationsPage() {
 
     return () => { cancelled = true; };
   }, [user, navigate]);
+
+  const regenerateCareer = async () => {
+    if (!aiInput || aiLoading) return;
+    setAiLoading(true);
+    setAiNotice('');
+    try {
+      setAiCareer(await getAiResult('career', aiInput, { regenerate: true }));
+    } catch (e) {
+      setAiNotice(e instanceof AiLimitError ? e.message : 'The AI writer is unavailable right now. Try again in a minute.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const toggleSave = (id: string) => {
     const updated = saved.includes(id) ? saved.filter(s => s !== id) : [...saved, id];
@@ -252,8 +270,21 @@ export default function RecommendationsPage() {
                             <p className="text-sm text-gray-600 leading-relaxed">{aiCareer.careerInsight}</p>
                           </div>
                         )}
-                        <p className="text-[11px] text-gray-400">Written by AI from your answers. Check anything before you rely on it.</p>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-[11px] text-gray-400">Written by AI from your answers. Check anything before you rely on it.</p>
+                          <button
+                            onClick={regenerateCareer}
+                            disabled={aiLoading}
+                            className="text-xs font-bold text-purple-600 hover:text-purple-800 flex items-center gap-1 disabled:opacity-50"
+                          >
+                            <RefreshCw size={12} className={aiLoading ? 'animate-spin' : ''} />
+                            {aiLoading ? 'Rewriting…' : 'Rewrite this'}
+                          </button>
+                        </div>
                       </div>
+                    )}
+                    {index === 0 && aiNotice && (
+                      <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">{aiNotice}</p>
                     )}
 
                     <div className="grid sm:grid-cols-2 gap-6">

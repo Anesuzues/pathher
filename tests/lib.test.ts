@@ -121,3 +121,17 @@ test('AI career steps never repeat the certificate step, and KnobzToLearn is spe
   // If every step was the certificate, there's nothing to show, so the reply is rejected.
   assert.equal(parseResult('career', JSON.stringify({ whyItFits: 'w', encouragement: 'e', nextSteps: ['Finish the certificate'] })), null);
 });
+
+test('AI daily limit: per-user per-day key and a sane default', async () => {
+  const { usageKey, DAILY_LIMIT } = await import('../api/ai.ts');
+  assert.equal(usageKey('abc', new Date('2026-11-11T23:59:00Z')), 'ai-usage:abc:2026-11-11');
+  assert.equal(usageKey('abc', new Date('2026-11-12T00:00:00Z')), 'ai-usage:abc:2026-11-12');
+  const prev = process.env.AI_DAILY_LIMIT;
+  delete process.env.AI_DAILY_LIMIT;
+  assert.equal(DAILY_LIMIT(), 10);
+  process.env.AI_DAILY_LIMIT = '25';
+  assert.equal(DAILY_LIMIT(), 25);
+  process.env.AI_DAILY_LIMIT = 'nonsense';
+  assert.equal(DAILY_LIMIT(), 10);
+  if (prev === undefined) delete process.env.AI_DAILY_LIMIT; else process.env.AI_DAILY_LIMIT = prev;
+});
